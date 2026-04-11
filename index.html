@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sam's Recycling LLC</title>
+    <style>
+        :root { --primary: #2c3e50; --secondary: #3498db; --success: #27ae60; --danger: #e74c3c; --light: #f4f7f6; --warning: #f39c12; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: var(--light); color: #333; }
+        
+        .sidebar { width: 260px; background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%); color: white; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .nav-item { padding: 12px; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-weight: 600; background: rgba(255,255,255,0.1); color: white; transition: 0.3s; }
+        .nav-item:hover { background: rgba(255,255,255,0.2); }
+        .nav-item.active { background: var(--secondary); }
+        .admin-label { font-size: 10px; font-weight: bold; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-top: 15px; }
+        
+        .content { flex: 1; padding: 30px; overflow-y: auto; }
+        .view-section { display: none; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: #f8f9fa; color: var(--primary); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+        
+        input, select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 14px;}
+        input:focus { border-color: var(--secondary); outline: none; }
+        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; margin-bottom: 4px; display: block; }
+        
+        .btn-complete { width: 100%; padding: 20px; background: var(--success); color: white; border: none; border-radius: 6px; font-size: 20px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.2s;}
+        .btn-complete:hover:not(:disabled) { background: #229954; }
+        .btn-complete:disabled { background: #95a5a6; }
+        .btn-add { background: var(--secondary); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .btn-action { padding: 8px 12px; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+        
+        .total-display { text-align: right; font-size: 32px; font-weight: bold; color: var(--success); margin-top: 15px; }
+        
+        /* Alerts */
+        .alert-banner { padding: 15px; border-radius: 6px; font-weight: bold; margin-bottom: 15px; display: none; text-align: center; }
+        .alert-warning { background: #fcf3cf; color: #d35400; border: 1px solid #f1c40f; }
+        .alert-danger { background: #fadbd8; color: #c0392b; border: 1px solid #e74c3c; }
+
+        /* CRM Layout */
+        .crm-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .crm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .dl-preview { width: 100%; height: 200px; background: #eee; border-radius: 8px; object-fit: cover; border: 2px dashed #ccc; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; color: #999; }
+        /* Reports */
+        .report-container { padding: 20px; background: white; border-radius: 8px; margin: 20px 0; }
+        .report-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+        .report-table th { background: #f8f9fa; padding: 12px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd; }
+        .report-table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+        .report-table tr:hover { background: #f9f9f9; }
+        .report-timestamp { font-size: 12px; color: #999; margin-bottom: 15px; }
+        .report-actions { margin-top: 20px; display: flex; gap: 10px; }
+        .btn-print { padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-print:hover { background: #2980b9; }
+        .btn-export { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-export:hover { background: #229954; }
+        
+        /* Badges */
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 3px; font-size: 11px; font-weight: bold; }
+        .badge-sale { background: #d4edda; color: #155724; }
+        .badge-purchase { background: #fff3cd; color: #856404; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; }
+        .modal-content { background: white; width: 400px; margin: 100px auto; padding: 30px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2 style="text-align:center; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1)">Sam's Recycling</h2>
+        
+        <span class="admin-label">Operations</span>
+        <button class="nav-item active" onclick="showView('ticket-view'); initTicketView();">⚖️ NEW TICKET</button>
+        <button class="nav-item" onclick="showView('crm-view'); loadCrmCustomers();">👥 CUSTOMER DB</button>
+        <button class="nav-item" onclick="showView('product-view'); loadProducts();">📦 MATERIALS</button>
+        <button class="nav-item" onclick="showView('history-view'); loadTransactions();">📊 TICKET HISTORY</button>
+        <button class="nav-item" onclick="showView('reports-view');">📈 REPORTS</button>
+
+        <span class="admin-label">Analytics & Management</span>
+        <button class="nav-item" onclick="showView('dashboard-view'); loadDashboard();">📊 DASHBOARD</button>
+        <button class="nav-item" onclick="showView('inventory-view'); loadInventory();">📦 INVENTORY</button>
+        <button class="nav-item" onclick="showView('pricing-view'); loadPricingAnalysis(); loadProductsForPricing();">💰 PRICING</button>
+        <button class="nav-item" onclick="showView('balances-view'); loadCustomerBalances();">💳 BALANCES</button>
+        <button class="nav-item" onclick="showView('vehicles-view'); loadVehicleDatabase();">🚗 VEHICLES</button>
+        <button class="nav-item" onclick="showView('copper-holds-view'); loadCopperHoldsUI();">⚠️ COPPER HOLDS</button>
+
+        <span class="admin-label">Business Tools</span>
+        <button class="nav-item" onclick="showDatabaseStats()">📈 QUICK STATS</button>
+        <button class="nav-item" onclick="generateReport('daily', 'sales')">💰 DAILY SALES</button>
+        <button class="nav-item" onclick="showMaterialStats()">🏗️ MATERIAL STATS</button>
+        <button class="nav-item" onclick="backupDatabaseWithDialog()" style="border-left: 4px solid var(--warning);">💾 BACKUP DB</button>
+        <button class="nav-item" onclick="restoreDatabaseWithDialog()" style="border-left: 4px solid var(--warning);">🔄 RESTORE DB</button>
+        <button class="nav-item" onclick="exportCustomers()" style="border-left: 4px solid var(--success);">📥 EXPORT SELLERS</button>
+    </div>
+
+    <div class="content">
+        <div id="ticket-view" class="view-section" style="display:block;">
+            <div id="dlAlertBanner" class="alert-banner"></div>
+            <div class="card">
+                <h3>Transaction Type & Customer Information</h3>
+                <div style="display:flex; gap:15px; margin-bottom:20px; align-items:flex-end;">
+                    <div style="flex:1;">
+                        <label>Transaction Type</label>
+                        <select id="transactionType" onchange="currentTransactionType = this.value; document.getElementById('copperExemptionSection').style.display = (this.value === 'buy') ? 'block' : 'none';">
+                            <option value="sale">💰 SALE (selling scrap to public)</option>
+                            <option value="buy">📦 PURCHASE (buying from vendor)</option>
+                        </select>
+                    </div>
+                    <div style="flex:2; position:relative;"><label>Full Name or Phone</label><input type="text" id="custName" placeholder="Search..." oninput="handleCustomerSearch(this.value)" autocomplete="off"><div id="customerDropdown" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:1000; background:#fff; border:1px solid #ccc; border-top:none; border-radius:0 0 6px 6px; max-height:200px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div></div>
+                    <div style="flex:1;"><label>ID Number</label><input type="text" id="custId"></div>
+                    <div style="flex:1;"><label>Vehicle Plate / Truck</label><input type="text" id="custPlate"></div>
+                </div>
+                
+                <!-- Copper Hold Exemption Section (Hidden by default) -->
+                <div id="copperExemptionSection" style="display:none; background:#fff3cd; border:2px solid #ff6b00; padding:15px; border-radius:8px; margin-bottom:20px;">
+                    <h4 style="margin-top:0; color:#ff6b00;">⚠️ COPPER PURCHASE - TENNESSEE DEALER EXEMPTION</h4>
+                    <div style="display:flex; gap:15px; align-items:center;">
+                        <label style="margin:0; display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="dealerExemption" onchange="toggleCopperExemption()"> 
+                            <span>Dealer Exemption from 5-Day Hold</span>
+                        </label>
+                    </div>
+                    <div id="dealerNumberField" style="display:none; margin-top:10px;">
+                        <label>Dealer License Number</label>
+                        <input type="text" id="dealerNumber" placeholder="Enter dealer license number">
+                    </div>
+                    <p style="font-size:12px; color:#666; margin:10px 0 0 0;">Leave unchecked for standard 5-day copper hold. Check if vendor is licensed dealer.</p>
+                </div>
+                
+                <h3>Weighing Breakdown</h3>
+                <table style="width:100%; margin-bottom:20px;">
+                    <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;"><th style="padding:10px; text-align:left;">Material</th><th style="padding:10px;">Gross (lbs)</th><th style="padding:10px;">Tare (lbs)</th><th style="padding:10px;">Net (lbs)</th><th style="padding:10px;">Price/lb</th><th style="padding:10px;">Total $</th><th style="padding:10px;">Remove</th></tr></thead>
+                    <tbody id="splitWeighingBody"></tbody>
+                </table>
+                
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-add" onclick="addSplitRow()" style="flex:1; padding:12px;">+ Add Material Row</button>
+                    <button class="btn-add" onclick="printLiveTicket()" style="flex:1; padding:12px; background:#2196F3;">🖨️ Print Preview</button>
+                </div>
+                
+                <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin-top:20px; border-left:5px solid #27ae60;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-size:24px; font-weight:bold; color:#27ae60;">TOTAL: $<span id="grandTotalDisplay">0.00</span></div>
+                        <button id="submitBtn" class="btn-complete" onclick="submitSplitTicket()" style="width:auto; padding:15px 40px; margin:0;">COMPLETE TRANSACTION</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="history-view" class="view-section">
+            <div class="card">
+                <h3>Ticket History</h3>
+                <input type="text" id="historySearch" placeholder="Search by name, plate, or ID..." oninput="filterHistory(this.value)" style="margin-bottom:15px;">
+                <table>
+                    <thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Total</th><th>Actions</th></tr></thead>
+                    <tbody id="transactionTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="crm-view" class="view-section">
+            <div class="crm-grid">
+                <div class="card" style="padding: 15px;">
+                    <h3>Directory</h3>
+                    <button class="btn-complete" style="margin-top:0; margin-bottom:15px; padding:10px; font-size:14px; background:var(--secondary);" onclick="clearCrmForm()">➕ CREATE NEW CUSTOMER</button>
+                    <input type="text" id="crmSearch" placeholder="Search Database..." oninput="filterCrmList(this.value)" style="margin-bottom:15px;">
+                    <div id="crmList" style="max-height: 550px; overflow-y: auto;"></div>
+                </div>
+                <div class="card">
+                    <h3 id="crmHeader">Customer Profile</h3>
+                    <input type="hidden" id="crmId">
+                    <div class="crm-form-grid">
+                        <div style="grid-column: span 2;">
+                            <label>DL Picture (Click to Upload)</label>
+                            <input type="file" id="dlImageInput" accept="image/*" style="display:none;" onchange="handleImageUpload(event)">
+                            <img id="dlPreview" class="dl-preview" src="" alt="No Image on File" onclick="document.getElementById('dlImageInput').click()" style="cursor:pointer;">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label>Location Image (Click to Upload)</label>
+                            <input type="file" id="locationImageInput" accept="image/*" style="display:none;" onchange="handleLocationImageUpload(event)">
+                            <img id="locationImagePreview" class="dl-preview" src="" alt="No Location Image" onclick="document.getElementById('locationImageInput').click()" style="cursor:pointer;">
+                        </div>
+                        <div><label>Full Name</label><input type="text" id="crmName"></div>
+                        <div><label>Phone Number</label><input type="text" id="crmPhone"></div>
+                        <div><label>ID / License Number</label><input type="text" id="crmIdNumber"></div>
+                        <div><label>ID Expiration Date</label><input type="date" id="crmExpiration"></div>
+                        <div><label>Vehicle Plate</label><input type="text" id="crmPlate"></div>
+                        <div><label>Truck Description</label><input type="text" id="crmTruck" placeholder="e.g. White F-150"></div>
+                        <div style="grid-column: span 2;"><label>Address</label><input type="text" id="crmAddress"></div>
+                        <div style="grid-column: span 2;"><label>Email</label><input type="email" id="crmEmail"></div>
+                        
+                        <!-- Vendor/Customer Role -->
+                        <div style="grid-column: span 2; background:#e8f5e9; padding:15px; border-radius:8px;">
+                            <label style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                                <input type="checkbox" id="crmIsVendor"> 
+                                <span style="font-weight:bold;">This is a Vendor (Buys scrap from us)</span>
+                            </label>
+                            
+                            <!-- Dealer Exemption Section -->
+                            <div style="background:white; padding:10px; border-radius:4px; border:1px solid #ccc;">
+                                <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                                    <input type="checkbox" id="crmDealerExemption" onchange="toggleDealerNumberField()"> 
+                                    <span>Dealer License (5-Day Copper Hold Exemption)</span>
+                                </label>
+                                <div id="dealerNumberFieldCRM" style="display:none;">
+                                    <label>Dealer License Number</label>
+                                    <input type="text" id="crmDealerNumber" placeholder="Enter dealer license number">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:20px; border-top:1px solid #eee;">
+                        <div id="crmStats" style="font-weight:bold; color:var(--primary);">Lifetime: $0.00 (0 Tickets)</div>
+                        <button class="btn-complete" style="width:auto; padding:10px 30px; margin:0;" onclick="saveCrmCustomer()">SAVE PROFILE</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="product-view" class="view-section">
+            <div class="card">
+                <h3>Manage Materials</h3>
+                <input type="hidden" id="editingProductId">
+                <div style="display:flex; gap:10px; margin-bottom:20px; background:#f9f9f9; padding:20px; border-radius:8px;">
+                    <div style="flex:2;"><label>Name</label><input type="text" id="newProdName"></div>
+                    <div style="flex:1;"><label>Price / lb</label><input type="number" id="newProdPrice" step="0.01"></div>
+                    <button class="btn-add" onclick="addProduct()" style="align-self:flex-end; height:40px;">Save</button>
+                </div>
+                <table><thead><tr><th>Name</th><th>Price</th><th>Action</th></tr></thead><tbody id="productsTableBody"></tbody></table>
+            </div>
+        </div>
+
+        <div id="dashboard-view" class="view-section">
+            <div class="card">
+                <h3>📊 BUSINESS DASHBOARD</h3>
+                <div id="dashboardContent" style="min-height:400px;">
+                    <p style="text-align:center; color:#666;">Loading dashboard...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="inventory-view" class="view-section">
+            <div class="card">
+                <h3>📦 INVENTORY MANAGEMENT</h3>
+                <div style="margin-bottom:20px; display:flex; gap:10px;">
+                    <input type="text" id="invMaterialSearch" placeholder="Search materials..." style="flex:1;">
+                    <button class="btn-add" onclick="showAddInventoryForm()">+ Add Stock</button>
+                    <button class="btn-add" onclick="loadInventory()" style="background:#2196F3;">🔄 Refresh</button>
+                </div>
+                <div id="inventoryTable"></div>
+            </div>
+        </div>
+
+        <div id="pricing-view" class="view-section">
+            <div class="card">
+                <h3>💰 PRICING & MARGINS</h3>
+                <div style="background:#f0f0f0; padding:15px; border-radius:8px; margin-bottom:20px;">
+                    <h4 style="margin-top:0;">Quick Price Updates</h4>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                        <div>
+                            <label>Material</label>
+                            <select id="priceUpdateMaterial">
+                                <option value="">-- Select Material --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>New Sell Price</label>
+                            <input type="number" id="priceUpdatePrice" step="0.01" min="0" placeholder="0.00">
+                        </div>
+                        <div style="display:flex; align-items:flex-end;">
+                            <button class="btn-complete" onclick="updateMaterialPrice()" style="width:100%; margin:0;">Update Price</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="pricingTable"></div>
+            </div>
+        </div>
+
+        <div id="balances-view" class="view-section">
+            <div class="card">
+                <h3>💳 CUSTOMER/VENDOR BALANCES</h3>
+                <div style="margin-bottom:15px; display:flex; gap:10px;">
+                    <input type="text" id="balanceSearch" placeholder="Search name..." style="flex:1;">
+                    <select id="balanceFilter">
+                        <option value="">All</option>
+                        <option value="positive">Credit Balance</option>
+                        <option value="negative">Owing</option>
+                    </select>
+                    <button class="btn-add" onclick="loadCustomerBalances()" style="background:#2196F3;">🔄 Refresh</button>
+                </div>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#f0f0f0; border-bottom:2px solid #333;">
+                            <th style="padding:10px; text-align:left;">Name</th>
+                            <th style="padding:10px; text-align:center;">Balance</th>
+                            <th style="padding:10px; text-align:left;">Status</th>
+                            <th style="padding:10px; text-align:left;">Last Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody id="balancesTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="copper-holds-view" class="view-section">
+            <div class="card">
+                <h3>⚠️ COPPER HOLD MANAGEMENT</h3>
+                <div style="background:#fff3cd; border:2px solid #ff6b00; padding:15px; border-radius:8px; margin-bottom:20px;">
+                    <p style="margin:0; color:#333;"><strong>Tennessee Law Requirement:</strong> 5-day hold on copper purchases. Release after compliance period.</p>
+                </div>
+                
+                <div style="margin-bottom:20px;">
+                    <h4>Active Holds (Expiring Soon)</h4>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f0f0f0;">
+                                <th style="padding:10px; text-align:left;">Vendor</th>
+                                <th style="padding:10px; text-align:center;">Ticket #</th>
+                                <th style="padding:10px; text-align:right;">Amount</th>
+                                <th style="padding:10px; text-align:center;">Hold Start</th>
+                                <th style="padding:10px; text-align:center;">Expires</th>
+                                <th style="padding:10px; text-align:center;">Days Left</th>
+                                <th style="padding:10px; text-align:center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="copperHoldsTableBody"></tbody>
+                    </table>
+                </div>
+                
+                <div>
+                    <h4>Released Holds (History)</h4>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f0f0f0;">
+                                <th style="padding:10px; text-align:left;">Vendor</th>
+                                <th style="padding:10px; text-align:center;">Amount</th>
+                                <th style="padding:10px; text-align:center;">Release Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="releasedHoldsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="vehicles-view" class="view-section">
+            <div class="card">
+                <h3>🚗 Vehicle Purchase Database</h3>
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <input type="text" id="vehicleSearch" placeholder="Search by VIN, make, model, customer..." oninput="filterVehicleDatabase(this.value)" style="flex:1;">
+                    <select id="vehicleDocFilter" onchange="filterVehicleDatabase(document.getElementById('vehicleSearch').value)" style="width:180px; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="">All Vehicles</option>
+                        <option value="has-title">Has Title</option>
+                        <option value="no-title">No Title</option>
+                        <option value="has-reg">Has Registration</option>
+                        <option value="no-docs">No Documentation</option>
+                    </select>
+                    <button class="btn-add" onclick="loadVehicleDatabase()" style="background:#2196F3;">🔄 Refresh</button>
+                </div>
+                <div id="vehicleSummaryBar" style="display:flex; gap:15px; margin-bottom:15px; padding:12px; background:#f0f0f0; border-radius:6px; font-size:13px; font-weight:bold;"></div>
+                <div id="vehicleDatabaseTable"></div>
+            </div>
+
+            <!-- Vehicle Edit Modal -->
+            <div id="vehicleEditModal" class="modal">
+                <div class="modal-content" style="max-width:700px; max-height:85vh; overflow-y:auto;">
+                    <h3 style="margin-top:0;">🚗 Edit Vehicle Record</h3>
+                    <input type="hidden" id="vehEditId">
+                    <input type="hidden" id="vehEditTicketId">
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px;">
+                        <div style="grid-column: span 2;">
+                            <label>VIN Number</label>
+                            <input type="text" id="vehEditVin" maxlength="17" style="font-family:monospace; text-transform:uppercase;">
+                        </div>
+                        <div>
+                            <label>Year</label>
+                            <input type="text" id="vehEditYear" maxlength="4">
+                        </div>
+                        <div>
+                            <label>Color</label>
+                            <input type="text" id="vehEditColor">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label>Make</label>
+                            <input type="text" id="vehEditMake">
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <label>Model</label>
+                            <input type="text" id="vehEditModel">
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+                        <div>
+                            <label>Condition</label>
+                            <select id="vehEditCondition" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px;">
+                                <option value="">Select...</option>
+                                <option value="Running - Good">Running - Good</option>
+                                <option value="Running - Fair">Running - Fair</option>
+                                <option value="Running - Poor">Running - Poor</option>
+                                <option value="Non-Running - Complete">Non-Running - Complete</option>
+                                <option value="Non-Running - Incomplete">Non-Running - Incomplete</option>
+                                <option value="Salvage - Heavy Damage">Salvage - Heavy Damage</option>
+                                <option value="Shell / Frame Only">Shell / Frame Only</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Purchase Price</label>
+                            <div style="display:flex; gap:5px;">
+                                <input type="number" id="vehEditPrice" step="0.01" min="0" style="flex:1;">
+                                <button class="btn-add" onclick="saveVehiclePrice()" style="white-space:nowrap;">💰 Update Price</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <label>Description / Notes</label>
+                        <input type="text" id="vehEditDescription" style="width:100%;">
+                    </div>
+                    <div style="display:flex; gap:20px; margin-top:12px; padding:12px; background:#f9f9f9; border-radius:6px; align-items:center;">
+                        <label style="display:flex; align-items:center; gap:6px; font-weight:bold;">
+                            <input type="checkbox" id="vehEditHasTitle" onchange="document.getElementById('vehEditTitleNumWrap').style.display=this.checked?'inline-block':'none'"> Title Available
+                        </label>
+                        <span id="vehEditTitleNumWrap" style="display:none;">
+                            <input type="text" id="vehEditTitleNumber" placeholder="Title #" style="padding:6px 10px; border:1px solid #ccc; border-radius:4px; width:160px;">
+                        </span>
+                        <label style="display:flex; align-items:center; gap:6px; font-weight:bold;">
+                            <input type="checkbox" id="vehEditHasReg"> Registration Available
+                        </label>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:15px;">
+                        <button class="btn-complete" onclick="saveVehicleEdit()" style="flex:1;">💾 SAVE CHANGES</button>
+                        <button onclick="document.getElementById('vehicleEditModal').style.display='none'" style="flex:1; padding:15px; border:none; border-radius:6px; background:var(--danger); color:white; font-weight:bold; cursor:pointer;">CANCEL</button>
+                    </div>
+                    <div id="vehEditInfo" style="margin-top:12px; padding:10px; background:#e8f5e9; border-radius:4px; font-size:12px; color:#333;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reports-view" class="view-section">
+            <div class="card">
+                <h3>Comprehensive Reporting</h3>
+                
+                <!-- Report Filters -->
+                <div style="background:#f0f0f0; padding:20px; border-radius:8px; margin-bottom:20px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;">
+                        <div>
+                            <label>Time Period</label>
+                            <select id="reportPeriod">
+                                <option value="hourly">Last Hour</option>
+                                <option value="daily" selected>Today (Daily)</option>
+                                <option value="weekly">Last 7 Days (Weekly)</option>
+                                <option value="monthly">Last 30 Days (Monthly)</option>
+                                <option value="quarterly">Last 90 Days (Quarterly)</option>
+                                <option value="yearly">Last Year (Yearly)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Report Type</label>
+                            <select id="reportType">
+                                <option value="sales" selected>Sales Summary</option>
+                                <option value="purchases">Purchase Summary</option>
+                                <option value="product">Product Breakdown</option>
+                                <option value="product_detail">Product Detail</option>
+                                <option value="customer">Customer Activity</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:flex-end;">
+                            <button class="btn-complete" onclick="generateAndPrintReport()" style="width:100%; margin:0; padding:12px;">📊 Generate & Print</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Report Buttons -->
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px;">
+                    <button class="btn-add" onclick="generateReport('daily', 'sales')" style="padding:15px;">📈 Daily Sales</button>
+                    <button class="btn-add" onclick="generateReport('daily', 'purchases')" style="padding:15px;">📦 Daily Purchases</button>
+                    <button class="btn-add" onclick="generateReport('daily', 'product')" style="padding:15px;">⚙️ Daily Materials</button>
+                    
+                    <button class="btn-add" onclick="generateReport('weekly', 'sales')" style="padding:15px;">📊 Weekly Sales</button>
+                    <button class="btn-add" onclick="generateReport('weekly', 'purchases')" style="padding:15px;">📦 Weekly Purchases</button>
+                    <button class="btn-add" onclick="generateReport('weekly', 'product')" style="padding:15px;">⚙️ Weekly Materials</button>
+                    
+                    <button class="btn-add" onclick="generateReport('monthly', 'sales')" style="padding:15px;">💰 Monthly Sales</button>
+                    <button class="btn-add" onclick="generateReport('monthly', 'purchases')" style="padding:15px;">💸 Monthly Purchases</button>
+                    <button class="btn-add" onclick="generateReport('monthly', 'product')" style="padding:15px;">📦 Monthly Materials</button>
+                </div>
+                
+                <!-- Advanced Options -->
+                <div style="border-top:2px solid #ddd; padding-top:20px;">
+                    <h4>Advanced Reports</h4>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <button class="btn-add" onclick="generateReport('quarterly', 'sales')" style="padding:12px;">Quarterly Sales Report</button>
+                        <button class="btn-add" onclick="generateReport('yearly', 'sales')" style="padding:12px;">Annual Sales Report</button>
+                        <button class="btn-add" onclick="generateReport('quarterly', 'product')" style="padding:12px;">Quarterly Materials Report</button>
+                        <button class="btn-add" onclick="generateReport('yearly', 'product')" style="padding:12px;">Annual Materials Report</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="axleModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">🧮 Axle Calculator</h3>
+            <input type="number" id="axle1" placeholder="Front (lbs)" oninput="updateAxleTotal()" style="margin: 10px 0;">
+            <input type="number" id="axle2" placeholder="Drives (lbs)" oninput="updateAxleTotal()" style="margin: 10px 0;">
+            <input type="number" id="axle3" placeholder="Trailer (lbs)" oninput="updateAxleTotal()" style="margin: 10px 0;">
+            <h2 align="center">Total: <span id="axleTotal">0</span></h2>
+            <button class="btn-complete" onclick="applyAxleWeight()" style="margin-top:10px;">APPLY</button>
+            <button onclick="document.getElementById('axleModal').style.display='none'" style="width:100%; margin-top:10px; padding:15px; border:none; border-radius:6px; background:var(--danger); color:white; font-weight:bold; cursor:pointer;">Cancel</button>
+        </div>
+    </div>
+
+    <div id="ticketModal" class="modal">
+        <div class="modal-content" style="max-width:700px;">
+            <h3 style="margin-top:0;">📋 TICKET DETAILS & OVERRIDE</h3>
+            <div style="max-height:400px; overflow-y:auto; margin-bottom:20px;">
+                <table class="responsive-table" style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#f9f9f9; border-bottom:2px solid #333;">
+                            <th style="padding:10px; text-align:left;">Material</th>
+                            <th style="padding:10px; text-align:center;">Weight</th>
+                            <th style="padding:10px; text-align:right;">Price</th>
+                            <th style="padding:10px; text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketItemsBody"></tbody>
+                </table>
+            </div>
+            
+            <div style="border-top:2px solid #333; padding-top:15px; margin-bottom:15px;">
+                <label style="display:block; margin-bottom:8px; font-weight:bold;">Manual Total Override</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input type="number" id="ticketTotalOverride" placeholder="0.00" step="0.01" style="flex:1;">
+                    <button class="btn-complete" onclick="overrideTicketTotal()" style="padding:10px 20px; margin:0;">💰 OVERRIDE</button>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:10px;">
+                <button class="btn-complete" onclick="printTicketPDF()" style="flex:1; background:#2196F3;">🖨️ PRINT PDF</button>
+                <button onclick="closeTicketModal()" style="flex:1; padding:15px; border:none; border-radius:6px; background:var(--danger); color:white; font-weight:bold; cursor:pointer;">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scale Status Bar (bottom-right fixed) -->
+    <div id="scaleStatusBar" style="position:fixed; bottom:0; right:0; background:linear-gradient(135deg, #2c3e50, #34495e); color:white; padding:10px 20px; border-top-left-radius:10px; z-index:900; display:flex; align-items:center; gap:12px; box-shadow:-2px -2px 10px rgba(0,0,0,0.2); font-size:13px; cursor:pointer;" onclick="toggleScaleSettings()">
+        <span id="scaleDot" class="scale-dot unconfigured" style="width:10px; height:10px; border-radius:50%; display:inline-block;"></span>
+        <span id="scaleStatusText" class="scale-status-text" style="font-weight:600;">Scale not configured</span>
+        <span style="font-size:10px; opacity:0.6; margin-left:4px;">|</span>
+        <span style="font-weight:bold; font-size:18px; color:#2ecc71;" id="liveWeight">0.0</span>
+        <span style="font-size:11px; opacity:0.7;">lbs</span>
+        <span style="font-size:16px; margin-left:4px;">⚙️</span>
+    </div>
+
+    <!-- Scale Settings Panel (slides up from status bar) -->
+    <div id="scaleSettingsPanel" style="display:none; position:fixed; bottom:45px; right:0; width:420px; background:white; border:1px solid #ddd; border-radius:10px 10px 0 0; box-shadow:-2px -4px 20px rgba(0,0,0,0.15); z-index:901; padding:20px; max-height:80vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">⚙️ Scale Settings</h3>
+            <button onclick="toggleScaleSettings()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
+        </div>
+
+        <div id="portTestResult" class="port-test-result" style="display:none; padding:10px; border-radius:4px; margin-bottom:10px; font-size:13px;"></div>
+
+        <!-- Presets -->
+        <div style="margin-bottom:15px;">
+            <label style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">Quick Presets</label>
+            <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">
+                <button onclick="applyPreset('toledo')" style="padding:5px 10px; border:1px solid #ddd; border-radius:4px; background:#f9f9f9; cursor:pointer; font-size:11px;">Toledo</button>
+                <button onclick="applyPreset('fairbanks')" style="padding:5px 10px; border:1px solid #ddd; border-radius:4px; background:#f9f9f9; cursor:pointer; font-size:11px;">Fairbanks</button>
+                <button onclick="applyPreset('ricelake')" style="padding:5px 10px; border:1px solid #ddd; border-radius:4px; background:#f9f9f9; cursor:pointer; font-size:11px;">Rice Lake</button>
+                <button onclick="applyPreset('cardinal')" style="padding:5px 10px; border:1px solid #ddd; border-radius:4px; background:#f9f9f9; cursor:pointer; font-size:11px;">Cardinal</button>
+                <button onclick="applyPreset('generic')" style="padding:5px 10px; border:1px solid #ddd; border-radius:4px; background:#f9f9f9; cursor:pointer; font-size:11px;">Generic</button>
+            </div>
+        </div>
+
+        <!-- Port Selection -->
+        <div style="margin-bottom:12px;">
+            <label style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">COM Port</label>
+            <div style="display:flex; gap:5px; margin-top:4px;">
+                <select id="sCfgPort" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                    <option value="">— Select port —</option>
+                </select>
+                <button onclick="refreshPortList()" style="padding:8px 12px; border:1px solid #ccc; border-radius:4px; background:#f0f0f0; cursor:pointer;" title="Refresh ports">🔄</button>
+                <button onclick="autoSeekScale()" style="padding:8px 12px; border:1px solid #27ae60; border-radius:4px; background:#d4edda; color:#155724; cursor:pointer; font-weight:bold;" title="Auto-detect scale">🔍 Auto</button>
+            </div>
+        </div>
+
+        <!-- Serial Parameters -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div>
+                <label style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">Baud Rate</label>
+                <select id="sCfgBaud" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                    <option value="1200">1200</option>
+                    <option value="2400">2400</option>
+                    <option value="4800">4800</option>
+                    <option value="9600" selected>9600</option>
+                    <option value="19200">19200</option>
+                    <option value="38400">38400</option>
+                    <option value="57600">57600</option>
+                    <option value="115200">115200</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">Parity</label>
+                <select id="sCfgParity" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                    <option value="none" selected>None</option>
+                    <option value="even">Even</option>
+                    <option value="odd">Odd</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">Data Bits</label>
+                <select id="sCfgData" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                    <option value="7">7</option>
+                    <option value="8" selected>8</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">Stop Bits</label>
+                <select id="sCfgStop" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                    <option value="1" selected>1</option>
+                    <option value="2">2</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+            <label style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">Line Delimiter</label>
+            <select id="sCfgDelim" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                <option value="\n" selected>LF (\n)</option>
+                <option value="\r\n">CR+LF (\r\n)</option>
+                <option value="\r">CR (\r)</option>
+            </select>
+        </div>
+
+        <!-- Poll Mode -->
+        <div style="margin-bottom:15px; padding:10px; background:#f9f9f9; border-radius:4px;">
+            <label style="display:flex; align-items:center; gap:8px; margin-bottom:0;">
+                <input type="checkbox" id="sCfgPoll" onchange="onPollToggle()">
+                <span style="font-size:11px; font-weight:bold; color:#666; text-transform:uppercase;">Poll Mode (demand scales)</span>
+            </label>
+            <div id="pollIntervalGroup" style="display:none; margin-top:8px;">
+                <label style="font-size:11px; font-weight:bold; color:#666;">Poll Interval (ms)</label>
+                <input type="number" id="sCfgPollMs" value="500" min="100" max="5000" step="100" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; gap:8px;">
+            <button onclick="saveScaleSettings()" style="flex:1; padding:12px; background:#27ae60; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">💾 Save & Connect</button>
+            <button onclick="manualReconnect()" style="padding:12px 16px; background:#3498db; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">🔌 Reconnect</button>
+        </div>
+    </div>
+
+    <style>
+        .scale-dot { transition: background 0.3s; }
+        .scale-dot.connected { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+        .scale-dot.connecting { background: #f39c12; animation: pulse 1s infinite; }
+        .scale-dot.disconnected { background: #e74c3c; }
+        .scale-dot.error { background: #e74c3c; }
+        .scale-dot.unconfigured { background: #95a5a6; }
+        .port-test-result.ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .port-test-result.err { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    </style>
+
+    <script src="renderer.js"></script>
+    <script src="scale-settings.js"></script>
+</body>
+</html>
