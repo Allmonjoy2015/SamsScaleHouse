@@ -1898,10 +1898,18 @@ function printVehicleRecord(vehicleId) {
 
 // ===== VIN VALIDATION =====
 
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function validateVinInput(input, counterId, counterEl) {
-    const val = input.value.toUpperCase();
-    input.value = val;
-    const len = val.length;
+    const len = input.value.length;
     const counter = counterEl || (counterId ? document.getElementById(counterId) : null);
     if (counter) {
         counter.textContent = `(${len}/17)`;
@@ -1929,17 +1937,26 @@ function printTransactionHistory() {
     const rows = document.querySelectorAll('#transactionTableBody tr');
     if (!rows.length) return alert('No transaction history to print.');
     let tableRows = '';
-    rows.forEach(r => { tableRows += `<tr>${r.innerHTML}</tr>`; });
+    rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 4) {
+            tableRows += `<tr>
+                <td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[0].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[1].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[2].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[3].textContent)}</td>
+            </tr>`;
+        }
+    });
     const html = `
         <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">TICKET HISTORY</h2>
         <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
         <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;">
             <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;">
-                <th style="padding:10px; text-align:left;">Date</th>
-                <th style="padding:10px; text-align:left;">Customer</th>
-                <th style="padding:10px; text-align:left;">Type</th>
-                <th style="padding:10px; text-align:left;">Total</th>
-                <th style="padding:10px; text-align:left;">Actions</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Date</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Customer</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Type</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Total</th>
             </tr></thead>
             <tbody>${tableRows}</tbody>
         </table>`;
@@ -1949,15 +1966,15 @@ function printTransactionHistory() {
 function printCrmProfile() {
     const id = document.getElementById('crmId').value;
     if (!id || id === 'NEW') return alert('No customer profile selected to print.');
-    const name = document.getElementById('crmName').value || 'Unknown';
-    const phone = document.getElementById('crmPhone').value || 'N/A';
-    const idNum = document.getElementById('crmIdNumber').value || 'N/A';
-    const exp = document.getElementById('crmExpiration').value || 'N/A';
-    const plate = document.getElementById('crmPlate').value || 'N/A';
-    const truck = document.getElementById('crmTruck').value || 'N/A';
-    const address = document.getElementById('crmAddress').value || 'N/A';
-    const email = document.getElementById('crmEmail').value || 'N/A';
-    const stats = document.getElementById('crmStats').innerText;
+    const name = escapeHtml(document.getElementById('crmName').value || 'Unknown');
+    const phone = escapeHtml(document.getElementById('crmPhone').value || 'N/A');
+    const idNum = escapeHtml(document.getElementById('crmIdNumber').value || 'N/A');
+    const exp = escapeHtml(document.getElementById('crmExpiration').value || 'N/A');
+    const plate = escapeHtml(document.getElementById('crmPlate').value || 'N/A');
+    const truck = escapeHtml(document.getElementById('crmTruck').value || 'N/A');
+    const address = escapeHtml(document.getElementById('crmAddress').value || 'N/A');
+    const email = escapeHtml(document.getElementById('crmEmail').value || 'N/A');
+    const stats = escapeHtml(document.getElementById('crmStats').textContent);
     const html = `
         <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">CUSTOMER PROFILE</h2>
         <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
@@ -1982,7 +1999,7 @@ function printProductsList() {
     rows.forEach(r => {
         const cells = r.querySelectorAll('td');
         if (cells.length >= 2) {
-            tableRows += `<tr><td style="padding:10px; border:1px solid #ddd;">${cells[0].textContent}</td><td style="padding:10px; border:1px solid #ddd;">${cells[1].textContent}</td></tr>`;
+            tableRows += `<tr><td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[0].textContent)}</td><td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[1].textContent)}</td></tr>`;
         }
     });
     const html = `
@@ -1999,49 +2016,148 @@ function printProductsList() {
 }
 
 function printDashboard() {
-    const content = document.getElementById('dashboardContent');
-    if (!content || !content.innerHTML.trim()) return alert('No dashboard data to print.');
+    const el = document.getElementById('dashboardContent');
+    if (!el || !el.textContent.trim()) return alert('No dashboard data to print.');
+    // Build structured output from the stat cards and table
+    const statCards = el.querySelectorAll('div[style*="border-radius:8px"]');
+    let statsHtml = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">';
+    statCards.forEach(card => {
+        const title = card.querySelector('h3');
+        const value = card.querySelector('p');
+        if (title && value) {
+            statsHtml += `<div style="border:1px solid #ddd; padding:15px; border-radius:6px;">
+                <div style="font-size:12px; font-weight:bold; color:#666;">${escapeHtml(title.textContent)}</div>
+                <div style="font-size:24px; font-weight:bold;">${escapeHtml(value.textContent)}</div>
+            </div>`;
+        }
+    });
+    statsHtml += '</div>';
+    const tableEl = el.querySelector('table');
+    let tableHtml = '';
+    if (tableEl) {
+        const headers = tableEl.querySelectorAll('th');
+        const rows = tableEl.querySelectorAll('tbody tr');
+        let headRow = '';
+        headers.forEach(h => { headRow += `<th style="padding:8px; text-align:left; border:1px solid #ddd; background:#f0f0f0;">${escapeHtml(h.textContent)}</th>`; });
+        let bodyRows = '';
+        rows.forEach(r => {
+            let cells = '';
+            r.querySelectorAll('td').forEach(td => { cells += `<td style="padding:8px; border:1px solid #ddd;">${escapeHtml(td.textContent)}</td>`; });
+            bodyRows += `<tr>${cells}</tr>`;
+        });
+        tableHtml = `<table style="width:100%; border-collapse:collapse; font-size:13px;"><thead><tr>${headRow}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+    }
     const html = `
         <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">📊 BUSINESS DASHBOARD</h2>
         <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
-        <div style="margin-top:20px;">${content.innerHTML}</div>`;
+        ${statsHtml}
+        <h3 style="border-bottom:1px solid #ddd; padding-bottom:8px;">Top Materials This Week</h3>
+        ${tableHtml}`;
     openPrintWindow(html);
 }
 
 function printInventoryList() {
-    const table = document.getElementById('inventoryTable');
-    if (!table || !table.innerHTML.trim()) return alert('No inventory data to print.');
+    const tableEl = document.querySelector('#inventoryTable table');
+    if (!tableEl) return alert('No inventory data to print.');
+    const headers = tableEl.querySelectorAll('th');
+    const rows = tableEl.querySelectorAll('tbody tr');
+    let headRow = '';
+    headers.forEach(h => { headRow += `<th style="padding:10px; text-align:left; border:1px solid #ddd; background:#f0f0f0;">${escapeHtml(h.textContent)}</th>`; });
+    let bodyRows = '';
+    rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        let rowHtml = '';
+        cells.forEach((td, i) => {
+            if (i < cells.length - 1) { // skip action column
+                rowHtml += `<td style="padding:10px; border:1px solid #ddd;">${escapeHtml(td.textContent)}</td>`;
+            }
+        });
+        bodyRows += `<tr>${rowHtml}</tr>`;
+    });
     const html = `
         <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">📦 INVENTORY</h2>
         <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
-        <div style="margin-top:20px;">${table.innerHTML}</div>`;
+        <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;"><thead><tr>${headRow}</tr></thead><tbody>${bodyRows}</tbody></table>`;
     openPrintWindow(html);
 }
 
 function printPricingTable() {
-    const table = document.getElementById('pricingTable');
-    if (!table || !table.innerHTML.trim()) return alert('No pricing data to print.');
+    const tableEl = document.querySelector('#pricingTable table');
+    if (!tableEl) return alert('No pricing data to print.');
+    const headers = tableEl.querySelectorAll('th');
+    const rows = tableEl.querySelectorAll('tbody tr');
+    let headRow = '';
+    headers.forEach(h => { headRow += `<th style="padding:10px; text-align:left; border:1px solid #ddd; background:#f0f0f0;">${escapeHtml(h.textContent)}</th>`; });
+    let bodyRows = '';
+    rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        let rowHtml = '';
+        cells.forEach((td, i) => {
+            if (i < cells.length - 1) { // skip action column
+                rowHtml += `<td style="padding:10px; border:1px solid #ddd;">${escapeHtml(td.textContent)}</td>`;
+            }
+        });
+        bodyRows += `<tr>${rowHtml}</tr>`;
+    });
     const html = `
         <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">💰 PRICING & MARGINS</h2>
         <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
-        <div style="margin-top:20px;">${table.innerHTML}</div>`;
+        <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;"><thead><tr>${headRow}</tr></thead><tbody>${bodyRows}</tbody></table>`;
     openPrintWindow(html);
+}
+
+function printVehicleDatabaseList() {
+    const summaryBar = document.getElementById('vehicleSummaryBar');
+    const tableEl = document.querySelector('#vehicleDatabaseTable table');
+    if (!tableEl) return alert('No vehicle database records to print.');
+    const headers = tableEl.querySelectorAll('th');
+    const rows = tableEl.querySelectorAll('tbody tr');
+    let headRow = '';
+    headers.forEach(h => { headRow += `<th style="padding:8px; text-align:left; border:1px solid #ddd; background:#f0f0f0; font-size:11px;">${escapeHtml(h.textContent)}</th>`; });
+    let bodyRows = '';
+    rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        let rowHtml = '';
+        cells.forEach((td, i) => {
+            if (i < cells.length - 1) { // skip action column
+                rowHtml += `<td style="padding:8px; border:1px solid #ddd; font-size:12px;">${escapeHtml(td.textContent.trim())}</td>`;
+            }
+        });
+        bodyRows += `<tr>${rowHtml}</tr>`;
+    });
+    const summaryText = summaryBar ? escapeHtml(summaryBar.textContent.trim()) : '';
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">🚗 VEHICLE PURCHASE DATABASE</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        ${summaryText ? `<div style="margin:10px 0; padding:10px; background:#f0f0f0; border-radius:4px; font-weight:bold; font-size:13px;">${summaryText}</div>` : ''}
+        <table style="width:100%; border-collapse:collapse; margin-top:10px;"><thead><tr>${headRow}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+    openPrintWindow(html, 1100, 800);
 }
 
 function printBalances() {
     const rows = document.querySelectorAll('#balancesTableBody tr');
     if (!rows.length) return alert('No balance data to print.');
     let tableRows = '';
-    rows.forEach(r => { tableRows += `<tr>${r.innerHTML}</tr>`; });
+    rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 4) {
+            tableRows += `<tr>
+                <td style="padding:10px; border:1px solid #ddd; font-weight:bold;">${escapeHtml(cells[0].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd; text-align:center;">${escapeHtml(cells[1].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[2].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd;">${escapeHtml(cells[3].textContent)}</td>
+            </tr>`;
+        }
+    });
     const html = `
         <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">💳 CUSTOMER/VENDOR BALANCES</h2>
         <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
         <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;">
             <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;">
-                <th style="padding:10px; text-align:left;">Name</th>
-                <th style="padding:10px; text-align:center;">Balance</th>
-                <th style="padding:10px; text-align:left;">Status</th>
-                <th style="padding:10px; text-align:left;">Last Updated</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Name</th>
+                <th style="padding:10px; text-align:center; border:1px solid #ddd;">Balance</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Status</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Last Updated</th>
             </tr></thead>
             <tbody>${tableRows}</tbody>
         </table>`;
@@ -2052,36 +2168,35 @@ function printCopperHolds() {
     const rows = document.querySelectorAll('#copperHoldsTableBody tr');
     if (!rows.length) return alert('No copper hold data to print.');
     let tableRows = '';
-    rows.forEach(r => { tableRows += `<tr>${r.innerHTML}</tr>`; });
+    rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 6) {
+            tableRows += `<tr>
+                <td style="padding:10px; border:1px solid #ddd; font-weight:bold;">${escapeHtml(cells[0].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd; text-align:center;">${escapeHtml(cells[1].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd; text-align:right;">${escapeHtml(cells[2].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd; text-align:center;">${escapeHtml(cells[3].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd; text-align:center;">${escapeHtml(cells[4].textContent)}</td>
+                <td style="padding:10px; border:1px solid #ddd; text-align:center;">${escapeHtml(cells[5].textContent)}</td>
+            </tr>`;
+        }
+    });
     const html = `
         <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">⚠️ COPPER HOLD MANAGEMENT</h2>
         <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
         <p style="text-align:center; font-size:12px; color:#333;"><strong>Tennessee Law Requirement:</strong> 5-day hold on copper purchases.</p>
         <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;">
             <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;">
-                <th style="padding:10px; text-align:left;">Vendor</th>
-                <th style="padding:10px; text-align:center;">Ticket #</th>
-                <th style="padding:10px; text-align:right;">Amount</th>
-                <th style="padding:10px; text-align:center;">Hold Start</th>
-                <th style="padding:10px; text-align:center;">Expires</th>
-                <th style="padding:10px; text-align:center;">Days Left</th>
-                <th style="padding:10px; text-align:center;">Action</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Vendor</th>
+                <th style="padding:10px; text-align:center; border:1px solid #ddd;">Ticket #</th>
+                <th style="padding:10px; text-align:right; border:1px solid #ddd;">Amount</th>
+                <th style="padding:10px; text-align:center; border:1px solid #ddd;">Hold Start</th>
+                <th style="padding:10px; text-align:center; border:1px solid #ddd;">Expires</th>
+                <th style="padding:10px; text-align:center; border:1px solid #ddd;">Days Left</th>
             </tr></thead>
             <tbody>${tableRows}</tbody>
         </table>`;
     openPrintWindow(html);
-}
-
-function printVehicleDatabaseList() {
-    const table = document.getElementById('vehicleDatabaseTable');
-    const summaryBar = document.getElementById('vehicleSummaryBar');
-    if (!table || !table.innerHTML.trim()) return alert('No vehicle database records to print.');
-    const html = `
-        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">🚗 VEHICLE PURCHASE DATABASE</h2>
-        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
-        ${summaryBar ? `<div style="margin:10px 0; padding:10px; background:#f0f0f0; border-radius:4px; font-weight:bold;">${summaryBar.innerHTML}</div>` : ''}
-        <div style="margin-top:10px; font-size:12px;">${table.innerHTML}</div>`;
-    openPrintWindow(html, 1100, 800);
 }
 
 
