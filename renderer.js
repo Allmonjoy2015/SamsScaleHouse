@@ -243,8 +243,8 @@ function checkVehicleFields(rowId) {
                     <div style="margin-bottom:8px; font-weight:bold; color:#2c3e50;">🚗 Vehicle Information</div>
                     <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px;">
                         <div>
-                            <label style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">VIN Number</label>
-                            <input type="text" class="vin-input" placeholder="17-character VIN" maxlength="17" style="width:100%; padding:8px; border:1px solid #3498db; border-radius:4px; font-family:monospace; text-transform:uppercase;">
+                            <label style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">VIN Number <span class="vin-count" style="font-weight:normal; color:#999;">(0/17)</span></label>
+                            <input type="text" class="vin-input" placeholder="17-character VIN" maxlength="17" minlength="17" style="width:100%; padding:8px; border:1px solid #3498db; border-radius:4px; font-family:monospace; text-transform:uppercase;" oninput="validateVinInput(this, null, this.closest('td').querySelector('.vin-count'))">
                         </div>
                         <div>
                             <label style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Year</label>
@@ -389,6 +389,16 @@ async function submitSplitTicket() {
         transaction_type: currentTransactionType
     };
     if(materials.length === 0) return alert("Please add at least one material or weight entry");
+
+    // Validate VIN entries: if a VIN is entered it must be exactly 17 characters
+    const vinInputs = document.querySelectorAll('.vin-input');
+    for (const vinEl of vinInputs) {
+        const vin = vinEl.value.trim();
+        if (vin && vin.length !== 17) {
+            vinEl.focus();
+            return alert('VIN must be exactly 17 characters.');
+        }
+    }
     
     btn.disabled = true;
     btn.innerText = "SAVING...";
@@ -1815,6 +1825,10 @@ async function saveVehicleEdit() {
         titleNumber: document.getElementById('vehEditTitleNumber').value.trim()
     };
 
+    if (data.vin && data.vin.length !== 17) {
+        return alert('VIN must be exactly 17 characters.');
+    }
+
     try {
         await window.electronAPI.invoke('update-vehicle-purchase', data);
         alert('Vehicle record updated!');
@@ -1882,7 +1896,195 @@ function printVehicleRecord(vehicleId) {
     printWindow.print();
 }
 
-// ===== SCALE INTEGRATION =====
+// ===== VIN VALIDATION =====
+
+function validateVinInput(input, counterId, counterEl) {
+    const val = input.value.toUpperCase();
+    input.value = val;
+    const len = val.length;
+    const counter = counterEl || (counterId ? document.getElementById(counterId) : null);
+    if (counter) {
+        counter.textContent = `(${len}/17)`;
+        counter.style.color = len === 0 ? '#999' : len === 17 ? '#27ae60' : '#e74c3c';
+    }
+    if (len === 0) {
+        input.style.borderColor = '#3498db';
+    } else if (len === 17) {
+        input.style.borderColor = '#27ae60';
+    } else {
+        input.style.borderColor = '#e74c3c';
+    }
+}
+
+// ===== PRINT FUNCTIONS FOR EACH VIEW =====
+
+function openPrintWindow(html, width, height) {
+    const pw = window.open('', '', `width=${width || 900},height=${height || 700}`);
+    pw.document.write(`<html><head><style>body{font-family:Arial,sans-serif;margin:20px;} @media print{button{display:none}}</style></head><body>${html}</body></html>`);
+    pw.document.close();
+    pw.print();
+}
+
+function printTransactionHistory() {
+    const rows = document.querySelectorAll('#transactionTableBody tr');
+    if (!rows.length) return alert('No transaction history to print.');
+    let tableRows = '';
+    rows.forEach(r => { tableRows += `<tr>${r.innerHTML}</tr>`; });
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">TICKET HISTORY</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;">
+            <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;">
+                <th style="padding:10px; text-align:left;">Date</th>
+                <th style="padding:10px; text-align:left;">Customer</th>
+                <th style="padding:10px; text-align:left;">Type</th>
+                <th style="padding:10px; text-align:left;">Total</th>
+                <th style="padding:10px; text-align:left;">Actions</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+        </table>`;
+    openPrintWindow(html);
+}
+
+function printCrmProfile() {
+    const id = document.getElementById('crmId').value;
+    if (!id || id === 'NEW') return alert('No customer profile selected to print.');
+    const name = document.getElementById('crmName').value || 'Unknown';
+    const phone = document.getElementById('crmPhone').value || 'N/A';
+    const idNum = document.getElementById('crmIdNumber').value || 'N/A';
+    const exp = document.getElementById('crmExpiration').value || 'N/A';
+    const plate = document.getElementById('crmPlate').value || 'N/A';
+    const truck = document.getElementById('crmTruck').value || 'N/A';
+    const address = document.getElementById('crmAddress').value || 'N/A';
+    const email = document.getElementById('crmEmail').value || 'N/A';
+    const stats = document.getElementById('crmStats').innerText;
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">CUSTOMER PROFILE</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:14px;">
+            <tr style="background:#f9f9f9;"><td style="padding:10px; font-weight:bold; width:180px; border:1px solid #ddd;">Name</td><td style="padding:10px; border:1px solid #ddd;">${name}</td></tr>
+            <tr><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">Phone</td><td style="padding:10px; border:1px solid #ddd;">${phone}</td></tr>
+            <tr style="background:#f9f9f9;"><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">ID / License #</td><td style="padding:10px; border:1px solid #ddd;">${idNum}</td></tr>
+            <tr><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">ID Expiration</td><td style="padding:10px; border:1px solid #ddd;">${exp}</td></tr>
+            <tr style="background:#f9f9f9;"><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">Vehicle Plate</td><td style="padding:10px; border:1px solid #ddd;">${plate}</td></tr>
+            <tr><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">Truck</td><td style="padding:10px; border:1px solid #ddd;">${truck}</td></tr>
+            <tr style="background:#f9f9f9;"><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">Address</td><td style="padding:10px; border:1px solid #ddd;">${address}</td></tr>
+            <tr><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">Email</td><td style="padding:10px; border:1px solid #ddd;">${email}</td></tr>
+            <tr style="background:#f9f9f9;"><td style="padding:10px; font-weight:bold; border:1px solid #ddd;">Lifetime Stats</td><td style="padding:10px; border:1px solid #ddd; font-weight:bold;">${stats}</td></tr>
+        </table>`;
+    openPrintWindow(html, 800, 600);
+}
+
+function printProductsList() {
+    const rows = document.querySelectorAll('#productsTableBody tr');
+    if (!rows.length) return alert('No materials to print.');
+    let tableRows = '';
+    rows.forEach(r => {
+        const cells = r.querySelectorAll('td');
+        if (cells.length >= 2) {
+            tableRows += `<tr><td style="padding:10px; border:1px solid #ddd;">${cells[0].textContent}</td><td style="padding:10px; border:1px solid #ddd;">${cells[1].textContent}</td></tr>`;
+        }
+    });
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">MATERIALS PRICE LIST</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:14px;">
+            <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;">
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Material</th>
+                <th style="padding:10px; text-align:left; border:1px solid #ddd;">Price / lb</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+        </table>`;
+    openPrintWindow(html, 700, 500);
+}
+
+function printDashboard() {
+    const content = document.getElementById('dashboardContent');
+    if (!content || !content.innerHTML.trim()) return alert('No dashboard data to print.');
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">📊 BUSINESS DASHBOARD</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <div style="margin-top:20px;">${content.innerHTML}</div>`;
+    openPrintWindow(html);
+}
+
+function printInventoryList() {
+    const table = document.getElementById('inventoryTable');
+    if (!table || !table.innerHTML.trim()) return alert('No inventory data to print.');
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">📦 INVENTORY</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <div style="margin-top:20px;">${table.innerHTML}</div>`;
+    openPrintWindow(html);
+}
+
+function printPricingTable() {
+    const table = document.getElementById('pricingTable');
+    if (!table || !table.innerHTML.trim()) return alert('No pricing data to print.');
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">💰 PRICING & MARGINS</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <div style="margin-top:20px;">${table.innerHTML}</div>`;
+    openPrintWindow(html);
+}
+
+function printBalances() {
+    const rows = document.querySelectorAll('#balancesTableBody tr');
+    if (!rows.length) return alert('No balance data to print.');
+    let tableRows = '';
+    rows.forEach(r => { tableRows += `<tr>${r.innerHTML}</tr>`; });
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">💳 CUSTOMER/VENDOR BALANCES</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;">
+            <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;">
+                <th style="padding:10px; text-align:left;">Name</th>
+                <th style="padding:10px; text-align:center;">Balance</th>
+                <th style="padding:10px; text-align:left;">Status</th>
+                <th style="padding:10px; text-align:left;">Last Updated</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+        </table>`;
+    openPrintWindow(html);
+}
+
+function printCopperHolds() {
+    const rows = document.querySelectorAll('#copperHoldsTableBody tr');
+    if (!rows.length) return alert('No copper hold data to print.');
+    let tableRows = '';
+    rows.forEach(r => { tableRows += `<tr>${r.innerHTML}</tr>`; });
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">⚠️ COPPER HOLD MANAGEMENT</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        <p style="text-align:center; font-size:12px; color:#333;"><strong>Tennessee Law Requirement:</strong> 5-day hold on copper purchases.</p>
+        <table style="width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;">
+            <thead><tr style="background:#f0f0f0; border-bottom:2px solid #333;">
+                <th style="padding:10px; text-align:left;">Vendor</th>
+                <th style="padding:10px; text-align:center;">Ticket #</th>
+                <th style="padding:10px; text-align:right;">Amount</th>
+                <th style="padding:10px; text-align:center;">Hold Start</th>
+                <th style="padding:10px; text-align:center;">Expires</th>
+                <th style="padding:10px; text-align:center;">Days Left</th>
+                <th style="padding:10px; text-align:center;">Action</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+        </table>`;
+    openPrintWindow(html);
+}
+
+function printVehicleDatabaseList() {
+    const table = document.getElementById('vehicleDatabaseTable');
+    const summaryBar = document.getElementById('vehicleSummaryBar');
+    if (!table || !table.innerHTML.trim()) return alert('No vehicle database records to print.');
+    const html = `
+        <h2 style="text-align:center; border-bottom:2px solid #333; padding-bottom:10px;">🚗 VEHICLE PURCHASE DATABASE</h2>
+        <p style="text-align:center; color:#666; font-size:12px;">Printed: ${new Date().toLocaleString()}</p>
+        ${summaryBar ? `<div style="margin:10px 0; padding:10px; background:#f0f0f0; border-radius:4px; font-weight:bold;">${summaryBar.innerHTML}</div>` : ''}
+        <div style="margin-top:10px; font-size:12px;">${table.innerHTML}</div>`;
+    openPrintWindow(html, 1100, 800);
+}
+
+
 
 // Listen for scale weight updates
 window.electronAPI.onScaleWeight((weight) => {

@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: var(--light); color: #333; }
         
-        .sidebar { width: 260px; background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%); color: white; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .sidebar { width: 260px; min-width: 260px; background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%); color: white; padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; }
         .nav-item { padding: 12px; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-weight: 600; background: rgba(255,255,255,0.1); color: white; transition: 0.3s; }
         .nav-item:hover { background: rgba(255,255,255,0.2); }
         .nav-item.active { background: var(--secondary); }
@@ -149,7 +149,10 @@
 
         <div id="history-view" class="view-section">
             <div class="card">
-                <h3>Ticket History</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>Ticket History</h3>
+                    <button class="btn-print" onclick="printTransactionHistory()">🖨️ Print History</button>
+                </div>
                 <input type="text" id="historySearch" placeholder="Search by name, plate, or ID..." oninput="filterHistory(this.value)" style="margin-bottom:15px;">
                 <table>
                     <thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Total</th><th>Actions</th></tr></thead>
@@ -211,7 +214,10 @@
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:20px; border-top:1px solid #eee;">
                         <div id="crmStats" style="font-weight:bold; color:var(--primary);">Lifetime: $0.00 (0 Tickets)</div>
-                        <button class="btn-complete" style="width:auto; padding:10px 30px; margin:0;" onclick="saveCrmCustomer()">SAVE PROFILE</button>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn-print" onclick="printCrmProfile()">🖨️ Print</button>
+                            <button class="btn-complete" style="width:auto; padding:10px 30px; margin:0;" onclick="saveCrmCustomer()">SAVE PROFILE</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -219,7 +225,10 @@
 
         <div id="product-view" class="view-section">
             <div class="card">
-                <h3>Manage Materials</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>Manage Materials</h3>
+                    <button class="btn-print" onclick="printProductsList()">🖨️ Print Materials</button>
+                </div>
                 <input type="hidden" id="editingProductId">
                 <div style="display:flex; gap:10px; margin-bottom:20px; background:#f9f9f9; padding:20px; border-radius:8px;">
                     <div style="flex:2;"><label>Name</label><input type="text" id="newProdName"></div>
@@ -232,7 +241,10 @@
 
         <div id="dashboard-view" class="view-section">
             <div class="card">
-                <h3>📊 BUSINESS DASHBOARD</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>📊 BUSINESS DASHBOARD</h3>
+                    <button class="btn-print" onclick="printDashboard()">🖨️ Print Dashboard</button>
+                </div>
                 <div id="dashboardContent" style="min-height:400px;">
                     <p style="text-align:center; color:#666;">Loading dashboard...</p>
                 </div>
@@ -241,7 +253,10 @@
 
         <div id="inventory-view" class="view-section">
             <div class="card">
-                <h3>📦 INVENTORY MANAGEMENT</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>📦 INVENTORY MANAGEMENT</h3>
+                    <button class="btn-print" onclick="printInventoryList()">🖨️ Print Inventory</button>
+                </div>
                 <div style="margin-bottom:20px; display:flex; gap:10px;">
                     <input type="text" id="invMaterialSearch" placeholder="Search materials..." style="flex:1;">
                     <button class="btn-add" onclick="showAddInventoryForm()">+ Add Stock</button>
@@ -253,7 +268,10 @@
 
         <div id="pricing-view" class="view-section">
             <div class="card">
-                <h3>💰 PRICING & MARGINS</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>💰 PRICING & MARGINS</h3>
+                    <button class="btn-print" onclick="printPricingTable()">🖨️ Print Pricing</button>
+                </div>
                 <div style="background:#f0f0f0; padding:15px; border-radius:8px; margin-bottom:20px;">
                     <h4 style="margin-top:0;">Quick Price Updates</h4>
                     <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
@@ -278,7 +296,10 @@
 
         <div id="balances-view" class="view-section">
             <div class="card">
-                <h3>💳 CUSTOMER/VENDOR BALANCES</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>💳 CUSTOMER/VENDOR BALANCES</h3>
+                    <button class="btn-print" onclick="printBalances()">🖨️ Print Balances</button>
+                </div>
                 <div style="margin-bottom:15px; display:flex; gap:10px;">
                     <input type="text" id="balanceSearch" placeholder="Search name..." style="flex:1;">
                     <select id="balanceFilter">
@@ -304,7 +325,10 @@
 
         <div id="copper-holds-view" class="view-section">
             <div class="card">
-                <h3>⚠️ COPPER HOLD MANAGEMENT</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>⚠️ COPPER HOLD MANAGEMENT</h3>
+                    <button class="btn-print" onclick="printCopperHolds()">🖨️ Print Holds</button>
+                </div>
                 <div style="background:#fff3cd; border:2px solid #ff6b00; padding:15px; border-radius:8px; margin-bottom:20px;">
                     <p style="margin:0; color:#333;"><strong>Tennessee Law Requirement:</strong> 5-day hold on copper purchases. Release after compliance period.</p>
                 </div>
@@ -345,7 +369,10 @@
 
         <div id="vehicles-view" class="view-section">
             <div class="card">
-                <h3>🚗 Vehicle Purchase Database</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3>🚗 Vehicle Purchase Database</h3>
+                    <button class="btn-print" onclick="printVehicleDatabaseList()">🖨️ Print Database</button>
+                </div>
                 <div style="display:flex; gap:10px; margin-bottom:15px;">
                     <input type="text" id="vehicleSearch" placeholder="Search by VIN, make, model, customer..." oninput="filterVehicleDatabase(this.value)" style="flex:1;">
                     <select id="vehicleDocFilter" onchange="filterVehicleDatabase(document.getElementById('vehicleSearch').value)" style="width:180px; padding:10px; border:1px solid #ccc; border-radius:4px;">
@@ -369,8 +396,8 @@
                     <input type="hidden" id="vehEditTicketId">
                     <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px;">
                         <div style="grid-column: span 2;">
-                            <label>VIN Number</label>
-                            <input type="text" id="vehEditVin" maxlength="17" style="font-family:monospace; text-transform:uppercase;">
+                            <label>VIN Number <span id="vehEditVinCount" style="font-weight:normal; color:#999;">(0/17)</span></label>
+                            <input type="text" id="vehEditVin" maxlength="17" minlength="17" style="font-family:monospace; text-transform:uppercase;" oninput="validateVinInput(this, 'vehEditVinCount')">
                         </div>
                         <div>
                             <label>Year</label>
