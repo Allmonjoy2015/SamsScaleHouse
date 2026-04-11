@@ -1,9 +1,0 @@
-Metadata-Version: 2.4
-Name: SamsScaleHouse
-Version: 0.1.0
-Summary: Scrap POS/POP with scale integration
-Requires-Python: >=3.10
-Provides-Extra: serial
-Requires-Dist: pyserial>=3.5; extra == "serial"
-Provides-Extra: dev
-Requires-Dist: pytest>=7.0; extra == "dev"
