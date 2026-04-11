@@ -1,0 +1,39 @@
+const { app, BrowserWindow, ipcMain } = require('electron');
+const sqlite3 = require('sqlite3').verbose();
+const { SerialPort } = require('serialport');
+const path = require('path');
+
+const dbPath = path.join(app.getPath('userData'), 'scrapyard.db');
+let db = new sqlite3.Database(dbPath);
+let mainWindow = null;
+let scalePort = null;
+
+function createWindow() {
+    mainWindow = new BrowserWindow({
+        width: 1400, height: 900,
+        webPreferences: { preload: path.join(__dirname, 'preload.js'), nodeIntegration: false, contextIsolation: true }
+    });
+    mainWindow.loadFile('index.html');
+}
+
+app.whenReady().then(() => createWindow());
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+ipcMain.handle('get-serial-ports', async () => {
+    try { return (await SerialPort.list()).map(p => ({ path: p.path, manufacturer: p.manufacturer || 'Unknown' })); }
+    catch { return []; }
+});
+
+ipcMain.handle('connect-scale', async (e, port, baud) => {
+    if (scalePort?.isOpen) scalePort.close();
+    scalePort = new SerialPort({ path: port, baudRate: baud || 9600, autoOpen: false });
+    scalePort.on('data', (d) => { const m = d.toString().match(/(\d+\.?\d*)/); if (m && mainWindow) mainWindow.webContents.send('scale-weight', parseFloat(m[1])); });
+    scalePort.open((e) => { if (mainWindow) mainWindow.webContents.send('scale-status', { connected: !e, port: port }); });
+    return { success: true };
+});
+
+ipcMain.handle('disconnect-scale', async () => { if (scalePort?.isOpen) scalePort.close(); return { success: true }; });
+
+ipcMain.handle('get-all-customers', () => new Promise((r, x) => db.all(`SELECT * FROM customers`, (e, rows) => e ? x(e) : r(rows || []))));
+ipcMain.handle('get-products', () => new Promise((r, x) => db.all(`SELECT * FROM products`, (e, rows) => e ? x(e) : r(rows || []))));
+ipcMain.handle('get-transactions', () => new Promise((r, x) => db.all(`SELECT t.*, c.name FROM transactions t LEFT JOIN customers c ON t.customer_id = c.id LIMIT 50`, (e, rows) => e ? x(e) : r(rows || []))));
