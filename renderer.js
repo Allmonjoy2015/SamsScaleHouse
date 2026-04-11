@@ -1404,9 +1404,15 @@ function showAddInventoryForm() {
 }
 
 async function removeInventory(id) {
-    if (confirm('Remove from inventory?')) {
-        // TODO: Add delete handler
+    if (!confirm('Remove from inventory?')) return;
+
+    try {
+        await window.electronAPI.invoke('delete-inventory', id);
+        alert('Inventory removed!');
         loadInventory();
+    } catch (err) {
+        console.error('Error removing inventory:', err);
+        alert('Error removing inventory');
     }
 }
 
