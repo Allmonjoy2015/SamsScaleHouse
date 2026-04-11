@@ -956,15 +956,12 @@ function showTicketModal(data) {
 }
 
 function createTicketItemsTable() {
-    let table = document.getElementById('ticketItemsTable');
-    if (!table) {
-        table = document.createElement('table');
-        table.id = 'ticketItemsTable';
-        table.className = 'responsive-table';
-        table.innerHTML = '<thead><tr><th>Material</th><th>Weight</th><th>Price</th><th>Action</th></tr></thead><tbody id="ticketItemsBody"></tbody>';
-        document.getElementById('ticketModal')?.appendChild(table);
+    const tableBody = document.getElementById('ticketItemsBody');
+    if (!tableBody) {
+        console.error('ticketItemsBody not found in ticket modal');
+        return null;
     }
-    return table.querySelector('tbody');
+    return tableBody;
 }
 
 function createTicketTotalInput() {
