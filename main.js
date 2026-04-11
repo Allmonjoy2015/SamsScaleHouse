@@ -888,8 +888,8 @@ ipcMain.handle('update-product-price', (e, { productId, newPrice, oldPrice }) =>
         const changedAt = new Date().toISOString();
         
         // Update product price
-        db.run(`UPDATE products SET price_per_lb = ?, last_updated = ? WHERE id = ?`,
-            [newPrice, changedAt, productId], function(err) {
+        db.run(`UPDATE products SET price_per_lb = ? WHERE id = ?`,
+            [newPrice, productId], function(err) {
                 if (err) return reject(err);
                 
                 // Record in price history
