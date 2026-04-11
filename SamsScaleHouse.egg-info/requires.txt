@@ -1,0 +1,6 @@
+
+[dev]
+pytest>=7.0
+
+[serial]
+pyserial>=3.5
