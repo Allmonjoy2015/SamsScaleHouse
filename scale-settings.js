@@ -116,20 +116,21 @@ async function loadSettingsIntoForm() {
 
 // After refreshing port list, restore saved port selection
 const _origRefresh = refreshPortList;
-window.refreshPortList = async function() {
+refreshPortList = async function() {
     await _origRefresh();
     const sel     = document.getElementById('sCfgPort');
     const pending = sel._pendingValue;
     if (pending) {
         // Try to select it; add as option if not in list (port currently unplugged)
         const exists = Array.from(sel.options).some(o => o.value === pending);
-        if (!exists && pending) {
+        if (!exists) {
             sel.innerHTML += `<option value="${pending}">${pending} (last used, not found)</option>`;
         }
         sel.value = pending;
         sel._pendingValue = null;
     }
 };
+window.refreshPortList = refreshPortList;
 
 // ── Poll Mode Toggle ──────────────────────────────────────────
 
