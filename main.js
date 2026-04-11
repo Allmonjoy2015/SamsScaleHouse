@@ -272,9 +272,9 @@ ipcMain.handle('get-all-customers', () => {
 
 ipcMain.handle('create-customer-profile', (e, data) => {
     return new Promise((resolve, reject) => {
-        const query = `INSERT INTO customers (name, id_number, dl_expiration, vehicle_plate, truck_description, phone, address, email, created_at) 
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`;
-        db.run(query, [data.name, data.id_number, data.dl_expiration, data.vehicle_plate, data.truck_description, data.phone, data.address, data.email], function(err) {
+        const query = `INSERT INTO customers (name, id_number, dl_expiration, vehicle_plate, truck_description, phone, address, email, is_vendor, dealer_exemption, dealer_number, created_at) 
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`;
+        db.run(query, [data.name, data.id_number, data.dl_expiration, data.vehicle_plate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null], function(err) {
             if (err) reject(err);
             else resolve({ success: true, newId: this.lastID });
         });
