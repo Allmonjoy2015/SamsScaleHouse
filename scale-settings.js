@@ -20,9 +20,11 @@ function updateScaleStatusUI(status, message = '') {
 
     dot.className  = `scale-dot ${status}`;
     text.className = `scale-status-text ${status}`;
-    text.textContent = message && status === 'error'
-        ? `⚠ ${message}`
-        : STATUS_LABELS[status] || status;
+
+    const label = STATUS_LABELS[status] || status;
+    text.textContent = message
+        ? (status === 'error' ? `⚠ ${message}` : `${label} — ${message}`)
+        : label;
 }
 
 // Listen for status events from main process
