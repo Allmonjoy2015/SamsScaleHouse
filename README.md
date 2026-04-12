@@ -43,7 +43,7 @@ python main.py
 ```
 
 This runs an interactive demo that creates a `MockScale`, opens a buy
-transaction, weighs copper and aluminium, and prints the audit trail.
+transaction, weighs copper and aluminum, and prints the audit trail.
 
 ### Running the tests
 
@@ -86,7 +86,7 @@ with scale:
     line = session.weigh_and_add_line(txn.transaction_id, copper.material_id)
     session.complete_transaction(txn.transaction_id)
 
-    print(f"Total: ${txn.total_amount:.2f}")   # Total: $1575.00
+    print(f"Total: ${txn.total_amount:.2f}")   # Total: $1,575.00
 ```
 
 ---
