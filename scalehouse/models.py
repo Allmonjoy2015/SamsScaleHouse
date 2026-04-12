@@ -17,6 +17,8 @@ class TransactionType(str, Enum):
 
 
 class TransactionStatus(str, Enum):
+    """Lifecycle state of a transaction."""
+
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     VOIDED = "VOIDED"
