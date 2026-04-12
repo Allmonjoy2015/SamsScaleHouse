@@ -212,7 +212,7 @@ function showToast(msg, isError = false) {
 
 // --- 7. COPPER HOLD & VOUCHER SYSTEM ---
 
-let currentTransactionType = 'sale'; // Default: sale
+let currentTransactionType = 'buy'; // Default: purchase scrap
 
 // --- VEHICLE PURCHASE FIELDS ---
 

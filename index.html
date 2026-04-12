@@ -103,7 +103,7 @@
                         <label>Transaction Type</label>
                         <select id="transactionType" onchange="currentTransactionType = this.value; document.getElementById('copperExemptionSection').style.display = (this.value === 'buy') ? 'block' : 'none';">
                             <option value="sale">💰 SALE (selling scrap to public)</option>
-                            <option value="buy">📦 PURCHASE (buying from vendor)</option>
+                            <option value="buy" selected>📦 PURCHASE (buying from vendor)</option>
                         </select>
                     </div>
                     <div style="flex:2; position:relative;"><label>Full Name or Phone</label><input type="text" id="custName" placeholder="Search..." oninput="handleCustomerSearch(this.value)" autocomplete="off"><div id="customerDropdown" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:1000; background:#fff; border:1px solid #ccc; border-top:none; border-radius:0 0 6px 6px; max-height:200px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.15);"></div></div>
@@ -111,8 +111,8 @@
                     <div style="flex:1;"><label>Vehicle Plate / Truck</label><input type="text" id="custPlate"></div>
                 </div>
                 
-                <!-- Copper Hold Exemption Section (Hidden by default) -->
-                <div id="copperExemptionSection" style="display:none; background:#fff3cd; border:2px solid #ff6b00; padding:15px; border-radius:8px; margin-bottom:20px;">
+                <!-- Copper Hold Exemption Section (Visible by default since purchase is default) -->
+                <div id="copperExemptionSection" style="display:block; background:#fff3cd; border:2px solid #ff6b00; padding:15px; border-radius:8px; margin-bottom:20px;">
                     <h4 style="margin-top:0; color:#ff6b00;">⚠️ COPPER PURCHASE - TENNESSEE DEALER EXEMPTION</h4>
                     <div style="display:flex; gap:15px; align-items:center;">
                         <label style="margin:0; display:flex; align-items:center; gap:8px;">
