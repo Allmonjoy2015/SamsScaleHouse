@@ -59,6 +59,40 @@ function initializeDatabase() {
             created_at TEXT,
             FOREIGN KEY(ticket_id) REFERENCES transactions(id)
         )`);
+
+        // 8. Catalytic Converter Purchases (TN Code § 62-9, effective July 1, 2021)
+        db.run(`CREATE TABLE IF NOT EXISTS catalytic_converter_purchases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id INTEGER,
+            seller_authorization_type TEXT,
+            seller_license_number TEXT,
+            vehicle_registration_doc TEXT,
+            clean_air_act_exempt INTEGER DEFAULT 0,
+            clean_air_act_cert_info TEXT,
+            seller_documentation_notes TEXT,
+            notification_sent INTEGER DEFAULT 0,
+            created_at TEXT,
+            FOREIGN KEY(ticket_id) REFERENCES transactions(id)
+        )`);
+
+        // 9. Vehicle Purchase Compliance (TN Code § 55-3-203)
+        db.run(`CREATE TABLE IF NOT EXISTS vehicle_purchase_compliance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehicle_purchase_id INTEGER,
+            seller_thumbprint_collected INTEGER DEFAULT 0,
+            seller_certification_signed INTEGER DEFAULT 0,
+            seller_certification_text TEXT,
+            nmvtis_reported INTEGER DEFAULT 0,
+            nmvtis_report_date TEXT,
+            transporting_vehicle_plate TEXT,
+            consideration_amount REAL,
+            three_day_hold_required INTEGER DEFAULT 0,
+            three_day_hold_start TEXT,
+            three_day_hold_expiry TEXT,
+            three_day_hold_released INTEGER DEFAULT 0,
+            created_at TEXT,
+            FOREIGN KEY(vehicle_purchase_id) REFERENCES vehicle_purchases(id)
+        )`);
         
         // Performance indexes
         db.run(`CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)`);
@@ -75,11 +109,21 @@ function initializeDatabase() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_customer_balances ON customer_balances(customer_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_vehicle_purchases_ticket ON vehicle_purchases(ticket_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_vehicle_purchases_vin ON vehicle_purchases(vin)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_catconv_ticket ON catalytic_converter_purchases(ticket_id)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_catconv_seller_type ON catalytic_converter_purchases(seller_authorization_type)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_veh_compliance_vp ON vehicle_purchase_compliance(vehicle_purchase_id)`);
 
         // Ensure vehicle material exists on every DB (safe to re-run)
         db.get(`SELECT id FROM products WHERE material_name = 'Whole Vehicle'`, (err, row) => {
             if (!err && !row) {
                 db.run(`INSERT INTO products (material_name, price_per_lb) VALUES ('Whole Vehicle', 0.00)`);
+            }
+        });
+
+        // Ensure catalytic converter material exists on every DB (safe to re-run)
+        db.get(`SELECT id FROM products WHERE material_name = 'Catalytic Converter'`, (err, row) => {
+            if (!err && !row) {
+                db.run(`INSERT INTO products (material_name, price_per_lb) VALUES ('Catalytic Converter', 0.00)`);
             }
         });
         
@@ -140,7 +184,8 @@ function initializeDatabase() {
                     { name: 'Stainless Steel', price: 0.45 },
                     { name: 'Brass', price: 2.15 },
                     { name: 'Lead', price: 0.85 },
-                    { name: 'Zinc', price: 0.55 }
+                    { name: 'Zinc', price: 0.55 },
+                    { name: 'Catalytic Converter', price: 0.00 }
                 ];
                 
                 const stmt = db.prepare(`INSERT INTO products (material_name, price_per_lb) VALUES (?, ?)`);
@@ -363,7 +408,12 @@ ipcMain.handle('get-ticket-details-with-customer', (e, ticketId) => {
                 // Also fetch vehicle purchase data if any
                 db.get(`SELECT * FROM vehicle_purchases WHERE ticket_id = ?`, [ticketId], (err, vehicle) => {
                     if (err) return reject(err);
-                    resolve({ transaction, items, vehicle: vehicle || null });
+
+                    // Also fetch catalytic converter compliance data if any
+                    db.get(`SELECT * FROM catalytic_converter_purchases WHERE ticket_id = ?`, [ticketId], (err, catconv) => {
+                        if (err) return reject(err);
+                        resolve({ transaction, items, vehicle: vehicle || null, catconv: catconv || null });
+                    });
                 });
             });
         });
@@ -847,6 +897,102 @@ ipcMain.handle('search-vehicles', (e, term) => {
             (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows || []);
+            }
+        );
+    });
+});
+
+// ── Catalytic Converter Compliance (TN Code § 62-9, eff. July 1, 2021) ──
+
+ipcMain.handle('save-catconv-purchase', (e, data) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO catalytic_converter_purchases
+             (ticket_id, seller_authorization_type, seller_license_number,
+              vehicle_registration_doc, clean_air_act_exempt, clean_air_act_cert_info,
+              seller_documentation_notes, notification_sent, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            [data.ticketId, data.sellerAuthorizationType, data.sellerLicenseNumber || null,
+             data.vehicleRegistrationDoc || null, data.cleanAirActExempt ? 1 : 0,
+             data.cleanAirActCertInfo || null, data.sellerDocumentationNotes || null,
+             data.notificationSent ? 1 : 0],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, catconvId: this.lastID });
+            }
+        );
+    });
+});
+
+ipcMain.handle('get-catconv-purchase', (e, ticketId) => {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT * FROM catalytic_converter_purchases WHERE ticket_id = ?`,
+            [ticketId],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(row || null);
+            }
+        );
+    });
+});
+
+ipcMain.handle('get-all-catconv-purchases', () => {
+    return new Promise((resolve, reject) => {
+        db.all(
+            `SELECT cc.*, t.date, t.total_amount, t.transaction_type,
+                    c.name as customer_name, c.phone, c.id_number
+             FROM catalytic_converter_purchases cc
+             JOIN transactions t ON cc.ticket_id = t.id
+             JOIN customers c ON t.customer_id = c.id
+             ORDER BY cc.created_at DESC`,
+            (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            }
+        );
+    });
+});
+
+// ── Vehicle Purchase Compliance (TN Code § 55-3-203) ──
+
+ipcMain.handle('save-vehicle-compliance', (e, data) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO vehicle_purchase_compliance
+             (vehicle_purchase_id, seller_thumbprint_collected, seller_certification_signed,
+              seller_certification_text, nmvtis_reported, nmvtis_report_date,
+              transporting_vehicle_plate, consideration_amount,
+              three_day_hold_required, three_day_hold_start, three_day_hold_expiry,
+              three_day_hold_released, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))`,
+            [data.vehiclePurchaseId,
+             data.sellerThumbprintCollected ? 1 : 0,
+             data.sellerCertificationSigned ? 1 : 0,
+             data.sellerCertificationText || null,
+             data.nmvtisReported ? 1 : 0,
+             data.nmvtisReportDate || null,
+             data.transportingVehiclePlate || null,
+             data.considerationAmount || 0,
+             data.threeDayHoldRequired ? 1 : 0,
+             data.threeDayHoldStart || null,
+             data.threeDayHoldExpiry || null],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, complianceId: this.lastID });
+            }
+        );
+    });
+});
+
+ipcMain.handle('get-vehicle-compliance', (e, vehiclePurchaseId) => {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT * FROM vehicle_purchase_compliance WHERE vehicle_purchase_id = ?`,
+            [vehiclePurchaseId],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(row || null);
             }
         );
     });
