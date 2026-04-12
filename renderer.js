@@ -97,6 +97,11 @@ async function initTicketView() {
     document.querySelectorAll('.vehicle-info-row').forEach(el => el.remove());
     document.getElementById('splitWeighingBody').innerHTML = '';
     document.getElementById('grandTotalDisplay').innerText = '0.00';
+    // Reset transaction type to purchase (buy) by default
+    currentTransactionType = 'buy';
+    const txTypeSelect = document.getElementById('transactionType');
+    if (txTypeSelect) txTypeSelect.value = 'buy';
+    document.getElementById('copperExemptionSection').style.display = 'block';
     addSplitRow(false);
     document.getElementById('custName').focus();
 }
