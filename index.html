@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: var(--light); color: #333; }
         
-        .sidebar { width: 260px; background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%); color: white; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .sidebar { width: 260px; background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%); color: white; padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 100vh; }
         .nav-item { padding: 12px; border: none; border-radius: 6px; cursor: pointer; text-align: left; font-weight: 600; background: rgba(255,255,255,0.1); color: white; transition: 0.3s; }
         .nav-item:hover { background: rgba(255,255,255,0.2); }
         .nav-item.active { background: var(--secondary); }
