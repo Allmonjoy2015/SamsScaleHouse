@@ -598,7 +598,20 @@ async function submitSplitTicket() {
                         const isOldVehicle = vehYear > 0 && (currentYear - vehYear >= 12);
                         const needsThreeDayHold = isOldVehicle && !vehData.hasTitle;
                         const holdStart = needsThreeDayHold ? new Date().toISOString() : null;
-                        const holdExpiry = needsThreeDayHold ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() : null;
+                        // Calculate 3 business days (skip weekends)
+                        let holdExpiryDate = null;
+                        if (needsThreeDayHold) {
+                            holdExpiryDate = new Date();
+                            let businessDaysAdded = 0;
+                            while (businessDaysAdded < 3) {
+                                holdExpiryDate.setDate(holdExpiryDate.getDate() + 1);
+                                const dayOfWeek = holdExpiryDate.getDay();
+                                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                                    businessDaysAdded++;
+                                }
+                            }
+                        }
+                        const holdExpiry = holdExpiryDate ? holdExpiryDate.toISOString() : null;
 
                         await window.electronAPI.invoke('save-vehicle-compliance', {
                             vehiclePurchaseId: vpResult.vehicleId,

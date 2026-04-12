@@ -180,9 +180,10 @@ class CatalyticConverterPurchase:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __post_init__(self) -> None:
-        if not self.clean_air_act_exempt and not self.seller_authorization_type:
+        if not self.clean_air_act_exempt and self.seller_authorization_type == SellerAuthorizationType.CLEAN_AIR_ACT_EXEMPT:
             raise ValueError(
-                "seller_authorization_type is required when not Clean Air Act exempt"
+                "seller_authorization_type cannot be CLEAN_AIR_ACT_EXEMPT "
+                "when clean_air_act_exempt is False"
             )
 
     def __str__(self) -> str:
