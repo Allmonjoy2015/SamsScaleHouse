@@ -115,6 +115,41 @@ class AuditLog:
         """Return a copy of all recorded events in chronological order."""
         return list(self._events)
 
+    def events_by_action(self, action: AuditAction) -> list[AuditEvent]:
+        """Return all events with the given action type."""
+        return [e for e in self._events if e.action == action]
+
+    def events_in_range(
+        self,
+        start: datetime,
+        end: datetime,
+    ) -> list[AuditEvent]:
+        """Return events whose timestamp falls within [start, end] (inclusive).
+
+        Both *start* and *end* must be timezone-aware ``datetime`` objects.
+        """
+        return [e for e in self._events if start <= e.timestamp <= end]
+
+    def write_report(self, filepath: Path) -> None:
+        """Write a human-readable audit report to *filepath*.
+
+        The report lists every recorded event, one per line, in chronological
+        order.  The file is overwritten if it already exists.
+
+        Parameters
+        ----------
+        filepath:
+            Destination path for the report (e.g. ``audit_report.txt``).
+        """
+        with filepath.open("w", encoding="utf-8") as fh:
+            fh.write(f"Audit Report — {len(self._events)} event(s)\n")
+            fh.write("=" * 60 + "\n")
+            for event in self._events:
+                fh.write(str(event) + "\n")
+                if event.details:
+                    for k, v in event.details.items():
+                        fh.write(f"    {k}: {v}\n")
+
     def __iter__(self) -> Iterator[AuditEvent]:
         return iter(self._events)
 
