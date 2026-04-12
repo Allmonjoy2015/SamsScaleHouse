@@ -21,8 +21,10 @@
   "build": {
     "appId": "com.sam.recycling.pos",
     "productName": "Sams Recycling",
+    "icon": "assets/logo.png",
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "assets/logo.ico"
     }
   }
 }
