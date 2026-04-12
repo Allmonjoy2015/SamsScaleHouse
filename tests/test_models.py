@@ -40,6 +40,18 @@ class TestWeightReading:
 
 
 # ---------------------------------------------------------------------------
+# Customer
+# ---------------------------------------------------------------------------
+
+class TestCustomer:
+    def test_str(self):
+        customer = Customer(name="Bob")
+        s = str(customer)
+        assert "Bob" in s
+        assert customer.customer_id[:8] in s
+
+
+# ---------------------------------------------------------------------------
 # Material
 # ---------------------------------------------------------------------------
 
@@ -147,6 +159,12 @@ class TestTransaction:
         txn.void()
         with pytest.raises(ValueError, match="already voided"):
             txn.void()
+
+    def test_cannot_complete_voided(self):
+        txn = self._make_transaction()
+        txn.void()
+        with pytest.raises(ValueError, match="Cannot complete a VOIDED"):
+            txn.complete()
 
     def test_str_representation(self):
         txn = self._make_transaction()
