@@ -6,6 +6,10 @@ let currentTargetId = null, currentRowId = null, customerSearchTimeout = null;
 let currentFocusedRowId = null;
 let lastScaleWeight = 0;
 
+function toTitleCase(str) {
+    return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function showView(v) {
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     document.getElementById(v).style.display = 'block';
@@ -543,11 +547,11 @@ async function submitSplitTicket() {
             });
         }
     });
-    const custName = document.getElementById('custName').value.trim();
+    const custName = toTitleCase(document.getElementById('custName').value.trim());
     const data = {
         customer_name: custName || 'Walk-in',
         id_number: document.getElementById('custId').value.trim(),
-        vehicle_plate: document.getElementById('custPlate').value.trim(),
+        vehicle_plate: document.getElementById('custPlate').value.trim().toUpperCase(),
         total_amount: parseFloat(document.getElementById('grandTotalDisplay').innerText),
         materials,
         transaction_type: currentTransactionType
@@ -1045,7 +1049,7 @@ async function handleLocationImageUpload(e) {
 
 async function saveCrmCustomer() {
     const id = document.getElementById('crmId').value;
-    const name = document.getElementById('crmName').value.trim();
+    const name = toTitleCase(document.getElementById('crmName').value.trim());
     
     if(!id) return alert("Select a customer from the list or click 'Create New Customer'.");
     if(!name) return alert("Customer Name is required.");
@@ -1055,7 +1059,7 @@ async function saveCrmCustomer() {
         phone: document.getElementById('crmPhone').value,
         id_number: document.getElementById('crmIdNumber').value,
         dl_expiration: document.getElementById('crmExpiration').value,
-        vehicle_plate: document.getElementById('crmPlate').value,
+        vehicle_plate: document.getElementById('crmPlate').value.trim().toUpperCase(),
         truck_description: document.getElementById('crmTruck').value,
         address: document.getElementById('crmAddress').value,
         email: document.getElementById('crmEmail').value,

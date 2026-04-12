@@ -23,6 +23,11 @@ if (!fs.existsSync(vinImagesPath)) {
     fs.mkdirSync(vinImagesPath, { recursive: true }); 
 }
 
+function toTitleCase(str) {
+    const normalized = String(str || '').trim().replace(/\s+/g, ' ');
+    return normalized.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function initializeDatabase() {
     db.serialize(() => {
         // 1. Core Tables
@@ -252,13 +257,16 @@ ipcMain.handle('add-split-ticket', (e, d) => {
                     db.run('ROLLBACK', () => settle(reject, error));
                 };
 
+                const normalizedName = toTitleCase(d.customer_name);
+                const normalizedPlate = (d.vehicle_plate || '').trim().toUpperCase();
+
                 db.run(`INSERT INTO customers (name, id_number, vehicle_plate, created_at) 
                         VALUES (?, ?, ?, datetime('now')) 
                         ON CONFLICT(name) DO UPDATE SET id_number=excluded.id_number, vehicle_plate=excluded.vehicle_plate`, 
-                [d.customer_name, d.id_number, d.vehicle_plate], function(err) {
+                [normalizedName, d.id_number, normalizedPlate], function(err) {
                     if (err) return rollback(err);
                     
-                    db.get(`SELECT id FROM customers WHERE name = ?`, [d.customer_name], (err, cust) => {
+                    db.get(`SELECT id FROM customers WHERE name = ?`, [normalizedName], (err, cust) => {
                         if (err || !cust) return rollback(err || new Error("Customer lookup failed"));
                         
                         const cId = cust.id;
@@ -328,9 +336,11 @@ ipcMain.handle('get-all-customers', () => {
 
 ipcMain.handle('create-customer-profile', (e, data) => {
     return new Promise((resolve, reject) => {
+        const normalizedName = toTitleCase(data.name);
+        const normalizedPlate = (data.vehicle_plate || '').trim().toUpperCase();
         const query = `INSERT INTO customers (name, id_number, dl_expiration, vehicle_plate, truck_description, phone, address, email, is_vendor, dealer_exemption, dealer_number, created_at) 
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`;
-        db.run(query, [data.name, data.id_number, data.dl_expiration, data.vehicle_plate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null], function(err) {
+        db.run(query, [normalizedName, data.id_number, data.dl_expiration, normalizedPlate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null], function(err) {
             if (err) reject(err);
             else resolve({ success: true, newId: this.lastID });
         });
@@ -339,8 +349,10 @@ ipcMain.handle('create-customer-profile', (e, data) => {
 
 ipcMain.handle('save-customer-profile', (e, data) => {
     return new Promise((resolve, reject) => {
+        const normalizedName = toTitleCase(data.name);
+        const normalizedPlate = (data.vehicle_plate || '').trim().toUpperCase();
         const query = `UPDATE customers SET name=?, id_number=?, dl_expiration=?, vehicle_plate=?, truck_description=?, phone=?, address=?, email=?, is_vendor=?, dealer_exemption=?, dealer_number=? WHERE id=?`;
-        db.run(query, [data.name, data.id_number, data.dl_expiration, data.vehicle_plate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null, data.id], function(err) {
+        db.run(query, [normalizedName, data.id_number, data.dl_expiration, normalizedPlate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null, data.id], function(err) {
             if (err) reject(err);
             else resolve({ success: true, changes: this.changes });
         });
