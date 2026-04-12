@@ -555,7 +555,6 @@ function printPaymentVoucher(ticketId, voucherCode, amount, customerName) {
     <div class="voucher-container" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f9f9f9; border: 3px solid #ff6b00;">
         <div style="text-align: center; border-bottom: 3px double #ff6b00; padding-bottom: 20px;">
             <h1 style="margin: 0; color: #ff6b00;">PAYMENT VOUCHER</h1>
-            <p style="margin: 5px 0; color: #999; font-size: 11px;">ORIGINAL</p>
             <p style="margin: 5px 0; color: #666;">⚠️ 5-DAY COPPER HOLD - TENNESSEE LAW</p>
         </div>
         
@@ -1200,7 +1199,7 @@ async function overrideTicketTotal() {
 // Ownership Agreement legal text
 const OWNERSHIP_AGREEMENT_TEXT = `<div style="margin-top: 30px; padding: 15px; border: 2px solid #333; border-radius: 4px; font-size: 10px; line-height: 1.5; page-break-inside: avoid;">
     <h4 style="margin: 0 0 8px 0; text-align: center; font-size: 12px; text-transform: uppercase;">OWNERSHIP AFFIRMATION AND INDEMNIFICATION AGREEMENT</h4>
-    <p style="margin: 0 0 6px 0;">The undersigned Seller, in consideration of CMC Recycling LLC d.b.a Sam\`s Recycling (hereinafter &lsquo;Buyer&rsquo;) purchasing scrap material, hereby affirms, warrants, and agrees to the following:</p>
+    <p style="margin: 0 0 6px 0;">The undersigned Seller, in consideration of CMC Recycling LLC d.b.a Sam&#96;s Recycling (hereinafter &lsquo;Buyer&rsquo;) purchasing scrap material, hereby affirms, warrants, and agrees to the following:</p>
     <p style="margin: 0 0 4px 0;"><strong>1. Ownership:</strong> Seller is the legal owner or authorized representative of the owner of all materials sold and has the full legal right to sell and transfer title.</p>
     <p style="margin: 0 0 4px 0;"><strong>2. No Liens:</strong> All materials are free and clear of any and all security interests, liens, or encumbrances.</p>
     <p style="margin: 0 0 4px 0;"><strong>3. Indemnification:</strong> Seller agrees to indemnify, defend, and hold harmless the Buyer, its affiliates, employees, and agents from any and all claims, demands, causes of action, losses, damages, or expenses (including attorney fees) arising from: (a) any breach of the warranties above, (b) any claim that the material was stolen or unlawfully obtained, or (c) any violation of local, state, or federal laws by the Seller.</p>
@@ -1254,7 +1253,7 @@ function buildTicketPrintHTML(transaction, items, vehicle, isOriginal) {
     ${watermarkStyle}
     <div class="watermark" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; position: relative;">
         <div style="text-align: center; margin-bottom: 10px;">
-            <h2 style="margin: 0;">CMC Recycling LLC d.b.a Sam\`s Recycling</h2>
+            <h2 style="margin: 0;">CMC Recycling LLC d.b.a Sam&#96;s Recycling</h2>
             <p style="margin: 5px 0; color: #666; font-size: 12px;">${isOriginal ? 'ORIGINAL' : 'REPRINT'} — Ticket #${transaction.id}</p>
         </div>
         <hr style="border: 1px solid #333;">
