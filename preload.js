@@ -48,6 +48,11 @@ const ALLOWED_CHANNELS = [
     'get-all-vehicle-purchases',
     'update-vehicle-purchase',
     'search-vehicles',
+    'save-vin-image',
+    // Ticket Editing
+    'add-ticket-item',
+    'delete-ticket-item',
+    'recalc-ticket-total',
     // Voucher and Copper Hold
     'generate-voucher',
     'get-vouchers',
@@ -61,6 +66,7 @@ const ALLOWED_CHANNELS = [
     // Inventory & Pricing
     'add-inventory',
     'get-inventory',
+    'delete-inventory',
     'update-product-price',
     'get-price-history',
     // Customer Balances
