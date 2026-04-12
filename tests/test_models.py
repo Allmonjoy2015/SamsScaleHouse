@@ -43,6 +43,19 @@ class TestWeightReading:
 # Material
 # ---------------------------------------------------------------------------
 
+class TestCustomer:
+    def test_str_contains_name_and_id(self):
+        c = Customer(name="Alice")
+        s = str(c)
+        assert "Alice" in s
+        assert c.customer_id[:8] in s
+
+    def test_str_with_phone_and_id_number(self):
+        c = Customer(name="Bob", phone="555-1234", id_number="ID-999")
+        # __str__ only shows name and first 8 chars of customer_id
+        assert "Bob" in str(c)
+
+
 class TestMaterial:
     def test_str(self):
         m = Material(name="Copper", price_per_lb=3.5)
@@ -147,6 +160,26 @@ class TestTransaction:
         txn.void()
         with pytest.raises(ValueError, match="already voided"):
             txn.void()
+
+    def test_cannot_complete_voided_transaction(self):
+        txn = self._make_transaction()
+        txn.void()
+        with pytest.raises(ValueError, match="Cannot complete"):
+            txn.complete()
+
+    def test_cannot_add_line_to_voided_transaction(self):
+        txn = self._make_transaction()
+        txn.void()
+        with pytest.raises(ValueError, match="Cannot add lines to a VOIDED transaction"):
+            txn.add_line(self._make_line())
+
+    def test_total_amount_zero_lines(self):
+        txn = self._make_transaction()
+        assert txn.total_amount == pytest.approx(0.0)
+
+    def test_total_net_weight_zero_lines(self):
+        txn = self._make_transaction()
+        assert txn.total_net_weight_lbs == pytest.approx(0.0)
 
     def test_str_representation(self):
         txn = self._make_transaction()

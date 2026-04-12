@@ -162,3 +162,80 @@ class TestTransactionWorkflow:
         txn = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
         with pytest.raises(POSError, match="Material not found"):
             s.weigh_and_add_line(txn.transaction_id, "no-such-material")
+
+    def test_weigh_unknown_transaction_raises(self, populated_session: POSSession):
+        s = populated_session
+        with pytest.raises(POSError, match="Transaction not found"):
+            s.weigh_and_add_line("no-such-txn", s._copper.material_id)
+
+    def test_complete_unknown_transaction_raises(self, session: POSSession):
+        with pytest.raises(POSError, match="Transaction not found"):
+            session.complete_transaction("no-such-txn")
+
+    def test_void_unknown_transaction_raises(self, session: POSSession):
+        with pytest.raises(POSError, match="Transaction not found"):
+            session.void_transaction("no-such-txn")
+
+    def test_get_transaction(self, populated_session: POSSession):
+        s = populated_session
+        txn = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
+        retrieved = s.get_transaction(txn.transaction_id)
+        assert retrieved is txn
+
+    def test_get_nonexistent_transaction_raises(self, session: POSSession):
+        with pytest.raises(POSError, match="Transaction not found"):
+            session.get_transaction("does-not-exist")
+
+    def test_list_all_transactions_no_filter(self, populated_session: POSSession):
+        s = populated_session
+        txn1 = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
+        txn2 = s.start_transaction(TransactionType.SELL, s._customer.customer_id)
+        all_txns = s.list_transactions()
+        assert txn1 in all_txns
+        assert txn2 in all_txns
+
+    def test_void_transaction_creates_audit_event(self, populated_session: POSSession):
+        s = populated_session
+        txn = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
+        s.void_transaction(txn.transaction_id)
+        events = s.audit.events_for(txn.transaction_id)
+        assert any(e.action == AuditAction.TRANSACTION_VOIDED for e in events)
+
+    def test_start_transaction_with_notes(self, populated_session: POSSession):
+        s = populated_session
+        txn = s.start_transaction(
+            TransactionType.BUY, s._customer.customer_id, notes="large load"
+        )
+        assert txn.notes == "large load"
+
+    def test_update_customer_creates_audit_event(self, session: POSSession):
+        customer = session.add_customer("Old Name")
+        session.update_customer(customer.customer_id, name="New Name")
+        events = session.audit.events_for(customer.customer_id)
+        assert any(e.action == AuditAction.CUSTOMER_UPDATED for e in events)
+
+    def test_add_material_creates_audit_event(self, session: POSSession):
+        mat = session.add_material("Brass", price_per_lb=1.50)
+        events = session.audit.events_for(mat.material_id)
+        assert any(e.action == AuditAction.MATERIAL_CREATED for e in events)
+
+    def test_session_without_audit_log_creates_default(self):
+        from scalehouse.scale import MockScale
+        scale = MockScale(gross_weight_lbs=10.0)
+        scale.connect()
+        s = POSSession(scale=scale)
+        assert s.audit is not None
+        assert len(s.audit) == 0
+
+    def test_multiple_lines_in_transaction(self, populated_session: POSSession):
+        s = populated_session
+        # session fixture: MockScale gross=200 lbs, tare=10 lbs → net=190 lbs
+        # populated_session: copper=$3.50/lb, aluminum=$0.60/lb
+        copper_amount = 190.0 * 3.50   # $665.00
+        aluminum_amount = 190.0 * 0.60  # $114.00
+        txn = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
+        s.weigh_and_add_line(txn.transaction_id, s._copper.material_id)
+        s.weigh_and_add_line(txn.transaction_id, s._aluminum.material_id)
+        s.complete_transaction(txn.transaction_id)
+        assert len(txn.lines) == 2
+        assert txn.total_amount == pytest.approx(copper_amount + aluminum_amount)
