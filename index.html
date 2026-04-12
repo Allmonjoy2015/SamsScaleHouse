@@ -101,7 +101,7 @@
                 <div style="display:flex; gap:15px; margin-bottom:20px; align-items:flex-end;">
                     <div style="flex:1;">
                         <label>Transaction Type</label>
-                        <select id="transactionType" onchange="currentTransactionType = this.value; document.getElementById('copperExemptionSection').style.display = (this.value === 'buy') ? 'block' : 'none';">
+                        <select id="transactionType" onchange="currentTransactionType = this.value; document.getElementById('copperExemptionSection').style.display = (this.value === 'buy') ? 'block' : 'none'; checkCatconvCompliance();">
                             <option value="sale">💰 SALE (selling scrap to public)</option>
                             <option value="buy" selected>📦 PURCHASE (buying from vendor)</option>
                         </select>
@@ -125,6 +125,66 @@
                         <input type="text" id="dealerNumber" placeholder="Enter dealer license number">
                     </div>
                     <p style="font-size:12px; color:#666; margin:10px 0 0 0;">Leave unchecked for standard 5-day copper hold. Check if vendor is licensed dealer.</p>
+                </div>
+
+                <!-- Catalytic Converter Compliance Section (TN Code § 62-9, eff. July 1, 2021) -->
+                <div id="catconvComplianceSection" style="display:none; background:#fce4ec; border:2px solid #c62828; padding:15px; border-radius:8px; margin-bottom:20px;">
+                    <h4 style="margin-top:0; color:#c62828;">🔒 CATALYTIC CONVERTER PURCHASE - TENNESSEE LAW COMPLIANCE</h4>
+                    <p style="font-size:12px; color:#555; margin:0 0 12px 0;">
+                        Per TN Code § 62-9: Scrap metal dealers must obtain seller documentation for detached catalytic converters.
+                        Unauthorized possession is a Class A misdemeanor.
+                    </p>
+
+                    <!-- Clean Air Act Exemption -->
+                    <div style="background:white; padding:10px; border-radius:4px; border:1px solid #ddd; margin-bottom:12px;">
+                        <label style="display:flex; align-items:center; gap:8px; margin-bottom:0;">
+                            <input type="checkbox" id="catconvCleanAirExempt" onchange="toggleCleanAirExemption()">
+                            <span style="font-weight:bold;">Clean Air Act Exemption (tested, certified, labeled for reuse per 42 U.S.C. §§ 7401)</span>
+                        </label>
+                        <div id="cleanAirCertField" style="display:none; margin-top:8px;">
+                            <label>Certification / Label Information</label>
+                            <input type="text" id="catconvCleanAirCertInfo" placeholder="Enter certification or label details">
+                        </div>
+                    </div>
+
+                    <!-- Seller Authorization Type (required if not Clean Air Act exempt) -->
+                    <div id="catconvAuthSection">
+                        <div style="margin-bottom:12px;">
+                            <label style="font-weight:bold; color:#c62828;">Seller Authorization Type (REQUIRED)</label>
+                            <select id="catconvSellerAuthType" style="border-color:#c62828;" onchange="toggleCatconvLicenseField()">
+                                <option value="">-- Select Authorization --</option>
+                                <option value="dismantler_recycler">Motor Vehicle Dismantler/Recycler (§ 55-17-109)</option>
+                                <option value="scrap_metal_dealer">Registered Scrap Metal Dealer (§ 62-9-102)</option>
+                                <option value="motor_vehicle_dealer">Licensed Motor Vehicle Dealer</option>
+                                <option value="mechanic_repair">Licensed Mechanic / Automotive Repair Facility</option>
+                                <option value="licensed_business">Other Licensed Business (generates/possesses converters)</option>
+                                <option value="individual_replacement">Individual with Vehicle Registration Documentation</option>
+                            </select>
+                        </div>
+
+                        <!-- License / Documentation Fields -->
+                        <div id="catconvLicenseField" style="display:none; margin-bottom:12px;">
+                            <label>Seller License / Registration Number</label>
+                            <input type="text" id="catconvSellerLicense" placeholder="Enter license or registration number">
+                        </div>
+
+                        <div id="catconvVehicleRegField" style="display:none; margin-bottom:12px;">
+                            <label>Vehicle Registration Documentation (for individual sellers)</label>
+                            <input type="text" id="catconvVehicleRegDoc" placeholder="Vehicle registration # or documentation reference">
+                            <p style="font-size:11px; color:#666; margin:4px 0 0 0;">Individual must possess documentation that converter was replaced from a vehicle registered in their name.</p>
+                        </div>
+
+                        <div style="margin-bottom:12px;">
+                            <label>Additional Seller Documentation Notes</label>
+                            <input type="text" id="catconvDocNotes" placeholder="Optional: additional notes about seller documentation">
+                        </div>
+                    </div>
+
+                    <div style="background:#ffebee; padding:10px; border-radius:4px; border:1px solid #ef9a9a; font-size:11px; color:#b71c1c;">
+                        <strong>⚠️ WARNING:</strong> Purchasing a detached catalytic converter without proper seller authorization
+                        and documentation is a violation of Tennessee law. Each unlawfully obtained converter is a separate
+                        Class A misdemeanor charge. The dealer is liable for repair/replacement costs to victims.
+                    </div>
                 </div>
                 
                 <h3>Weighing Breakdown</h3>

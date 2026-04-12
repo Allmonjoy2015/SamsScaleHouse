@@ -102,6 +102,31 @@ async function initTicketView() {
     const txTypeSelect = document.getElementById('transactionType');
     if (txTypeSelect) txTypeSelect.value = 'buy';
     document.getElementById('copperExemptionSection').style.display = 'block';
+    // Reset catalytic converter compliance section
+    const catconvSection = document.getElementById('catconvComplianceSection');
+    if (catconvSection) {
+        catconvSection.style.display = 'none';
+        const catconvExempt = document.getElementById('catconvCleanAirExempt');
+        if (catconvExempt) catconvExempt.checked = false;
+        const catconvAuth = document.getElementById('catconvSellerAuthType');
+        if (catconvAuth) catconvAuth.value = '';
+        const catconvLicense = document.getElementById('catconvSellerLicense');
+        if (catconvLicense) catconvLicense.value = '';
+        const catconvVehReg = document.getElementById('catconvVehicleRegDoc');
+        if (catconvVehReg) catconvVehReg.value = '';
+        const catconvCertInfo = document.getElementById('catconvCleanAirCertInfo');
+        if (catconvCertInfo) catconvCertInfo.value = '';
+        const catconvNotes = document.getElementById('catconvDocNotes');
+        if (catconvNotes) catconvNotes.value = '';
+        const cleanAirCertField = document.getElementById('cleanAirCertField');
+        if (cleanAirCertField) cleanAirCertField.style.display = 'none';
+        const catconvAuthSection = document.getElementById('catconvAuthSection');
+        if (catconvAuthSection) catconvAuthSection.style.display = 'block';
+        const catconvLicenseField = document.getElementById('catconvLicenseField');
+        if (catconvLicenseField) catconvLicenseField.style.display = 'none';
+        const catconvVehicleRegField = document.getElementById('catconvVehicleRegField');
+        if (catconvVehicleRegField) catconvVehicleRegField.style.display = 'none';
+    }
     addSplitRow(false);
     document.getElementById('custName').focus();
 }
@@ -160,6 +185,7 @@ function calculateRow(id, source) {
 
     calculateGrandTotal();
     checkCopperHold();
+    checkCatconvCompliance();
 
     // Show/hide vehicle info panel when material changes
     if (source === 'material-change') {
@@ -222,11 +248,18 @@ let currentTransactionType = 'buy'; // Default: purchase scrap
 // --- VEHICLE PURCHASE FIELDS ---
 
 const VEHICLE_MATERIAL_KEYWORDS = ['whole vehicle', 'car', 'truck', 'van', 'suv', 'auto', 'vehicle'];
+const CATCONV_MATERIAL_KEYWORDS = ['catalytic converter', 'catalytic', 'converter', 'cat con'];
 
 function isVehicleMaterial(materialName) {
     if (!materialName) return false;
     const lower = materialName.toLowerCase();
     return VEHICLE_MATERIAL_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function isCatconvMaterial(materialName) {
+    if (!materialName) return false;
+    const lower = materialName.toLowerCase();
+    return CATCONV_MATERIAL_KEYWORDS.some(kw => lower.includes(kw));
 }
 
 function checkVehicleFields(rowId) {
@@ -299,13 +332,34 @@ function checkVehicleFields(rowId) {
                         </label>
                         <span class="veh-doc-warning" style="color:#e74c3c; font-weight:bold; font-size:12px; display:none;">⚠️ No title or registration on file</span>
                     </div>
-                    <div class="veh-title-required-warning" style="display:none; margin-top:8px; padding:10px; background:#f8d7da; border:1px solid #f5c6cb; border-radius:4px; color:#721c24; font-weight:bold; font-size:12px;">
-                        🚫 TITLE REQUIRED — Vehicles less than 12 years old require a title to complete purchase.
-                    </div>
-                    <div style="margin-top:10px; padding:10px; background:#fff3cd; border:1px solid #ffc107; border-radius:4px;">
-                        <label style="font-size:10px; font-weight:bold; color:#856404; text-transform:uppercase;">📸 VIN Area Photo (required if no VIN entered)</label>
-                        <input type="file" class="vin-image-input" accept="image/*" style="display:block; margin-top:5px; font-size:12px;">
-                        <img class="vin-image-existing" src="#" alt="" style="display:none; max-width:200px; max-height:120px; margin-top:5px; border-radius:4px; border:1px solid #ccc;">
+                    <!-- TN Code § 55-3-203 Compliance Fields -->
+                    <div style="margin-top:10px; padding:12px; background:#fff8e1; border:1px solid #ffcc02; border-radius:4px;">
+                        <div style="font-weight:bold; font-size:11px; color:#e65100; margin-bottom:8px;">📋 TN § 55-3-203 COMPLIANCE (Motor Vehicle Dismantler/Scrap Processor)</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Transporting Vehicle Plate</label>
+                                <input type="text" class="veh-transporting-plate" placeholder="Plate # of transporting vehicle" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Consideration Amount ($)</label>
+                                <input type="number" class="veh-consideration" step="0.01" min="0" placeholder="0.00" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            </div>
+                            <div style="display:flex; flex-direction:column; justify-content:flex-end;">
+                                <label style="display:flex; align-items:center; gap:6px; font-weight:bold; font-size:11px;">
+                                    <input type="checkbox" class="veh-thumbprint-collected"> Seller Thumbprint Collected
+                                </label>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:15px; margin-top:8px; align-items:center;">
+                            <label style="display:flex; align-items:center; gap:6px; font-weight:bold; font-size:11px;">
+                                <input type="checkbox" class="veh-seller-cert-signed"> Seller Certification Signed
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; font-weight:bold; font-size:11px;">
+                                <input type="checkbox" class="veh-nmvtis-reported"> NMVTIS Reported
+                            </label>
+                            <span class="veh-compliance-warning" style="color:#e65100; font-weight:bold; font-size:11px; display:none;">⚠️ Compliance fields incomplete</span>
+                        </div>
+                        <p style="font-size:10px; color:#888; margin:6px 0 0 0;">Seller must sign statement certifying lawful right to sell, no liens, vehicle will never be titled again. Thumbprint required. Report to NMVTIS within 24 hours. 3-day hold required for 12+ year vehicles without title.</p>
                     </div>
                 </td>
             `;
@@ -359,7 +413,13 @@ function getVehicleDataFromRow(rowId) {
         description: (panel.querySelector('.veh-description').value || '').trim(),
         hasTitle: panel.querySelector('.veh-has-title').checked,
         hasRegistration: panel.querySelector('.veh-has-reg').checked,
-        titleNumber: (panel.querySelector('.veh-title-number').value || '').trim()
+        titleNumber: (panel.querySelector('.veh-title-number').value || '').trim(),
+        // TN § 55-3-203 Compliance
+        transportingVehiclePlate: (panel.querySelector('.veh-transporting-plate')?.value || '').trim(),
+        considerationAmount: parseFloat(panel.querySelector('.veh-consideration')?.value) || 0,
+        sellerThumbprintCollected: panel.querySelector('.veh-thumbprint-collected')?.checked || false,
+        sellerCertificationSigned: panel.querySelector('.veh-seller-cert-signed')?.checked || false,
+        nmvtisReported: panel.querySelector('.veh-nmvtis-reported')?.checked || false
     };
 }
 
@@ -383,6 +443,86 @@ function checkCopperHold() {
     } else {
         copperSection.style.borderColor = '#ff6b00';
     }
+}
+
+// --- CATALYTIC CONVERTER COMPLIANCE (TN Code § 62-9) ---
+
+// Check if any ticket row contains catalytic converter material (purchase mode)
+function checkCatconvCompliance() {
+    const catconvSection = document.getElementById('catconvComplianceSection');
+    if (!catconvSection) return;
+
+    if (currentTransactionType !== 'buy') {
+        catconvSection.style.display = 'none';
+        return;
+    }
+
+    let hasCatconvMaterial = false;
+    document.querySelectorAll('.split-row .mat-select').forEach(sel => {
+        if (sel.selectedIndex > 0 && isCatconvMaterial(sel.options[sel.selectedIndex].text)) {
+            hasCatconvMaterial = true;
+        }
+    });
+
+    catconvSection.style.display = hasCatconvMaterial ? 'block' : 'none';
+}
+
+function toggleCleanAirExemption() {
+    const isExempt = document.getElementById('catconvCleanAirExempt').checked;
+    const certField = document.getElementById('cleanAirCertField');
+    const authSection = document.getElementById('catconvAuthSection');
+    if (certField) certField.style.display = isExempt ? 'block' : 'none';
+    if (authSection) authSection.style.display = isExempt ? 'none' : 'block';
+}
+
+function toggleCatconvLicenseField() {
+    const authType = document.getElementById('catconvSellerAuthType').value;
+    const licenseField = document.getElementById('catconvLicenseField');
+    const vehicleRegField = document.getElementById('catconvVehicleRegField');
+
+    // Show license field for all business-type authorizations
+    const businessTypes = ['dismantler_recycler', 'scrap_metal_dealer', 'motor_vehicle_dealer', 'mechanic_repair', 'licensed_business'];
+    licenseField.style.display = businessTypes.includes(authType) ? 'block' : 'none';
+
+    // Show vehicle registration field for individual replacement
+    vehicleRegField.style.display = (authType === 'individual_replacement') ? 'block' : 'none';
+}
+
+function getCatconvComplianceData() {
+    const isExempt = document.getElementById('catconvCleanAirExempt')?.checked || false;
+    return {
+        sellerAuthorizationType: isExempt ? 'clean_air_act_exempt' : (document.getElementById('catconvSellerAuthType')?.value || ''),
+        sellerLicenseNumber: document.getElementById('catconvSellerLicense')?.value?.trim() || '',
+        vehicleRegistrationDoc: document.getElementById('catconvVehicleRegDoc')?.value?.trim() || '',
+        cleanAirActExempt: isExempt,
+        cleanAirActCertInfo: document.getElementById('catconvCleanAirCertInfo')?.value?.trim() || '',
+        sellerDocumentationNotes: document.getElementById('catconvDocNotes')?.value?.trim() || '',
+        notificationSent: false
+    };
+}
+
+function validateCatconvCompliance() {
+    const data = getCatconvComplianceData();
+
+    if (data.cleanAirActExempt) {
+        // Clean Air Act exempt — no further checks
+        return { valid: true, data };
+    }
+
+    if (!data.sellerAuthorizationType) {
+        return { valid: false, message: 'Catalytic Converter Compliance:\nSeller authorization type is REQUIRED per TN Code § 62-9.\nPlease select the seller\'s authorization category.' };
+    }
+
+    const businessTypes = ['dismantler_recycler', 'scrap_metal_dealer', 'motor_vehicle_dealer', 'mechanic_repair', 'licensed_business'];
+    if (businessTypes.includes(data.sellerAuthorizationType) && !data.sellerLicenseNumber) {
+        return { valid: false, message: 'Catalytic Converter Compliance:\nSeller license/registration number is REQUIRED.\nPer TN Code § 62-9, dealer must obtain and maintain a copy of seller\'s license.' };
+    }
+
+    if (data.sellerAuthorizationType === 'individual_replacement' && !data.vehicleRegistrationDoc) {
+        return { valid: false, message: 'Catalytic Converter Compliance:\nVehicle registration documentation is REQUIRED for individual sellers.\nIndividual must provide documentation showing converter was replaced from their registered vehicle.' };
+    }
+
+    return { valid: true, data };
 }
 
 async function submitSplitTicket() {
@@ -414,41 +554,12 @@ async function submitSplitTicket() {
     };
     if(materials.length === 0) return alert("Please add at least one material or weight entry");
 
-    // --- Vehicle validation ---
-    const vehicleRows = document.querySelectorAll('.vehicle-info-row');
-    for (const vRow of vehicleRows) {
-        const rowId = vRow.id.replace('vehicle-panel-', '');
-        const vehData = getVehicleDataFromRow(rowId);
-        if (!vehData) continue;
-
-        // Enforce VIN: must be exactly 17 characters if provided
-        if (vehData.vin && vehData.vin.length !== 17) {
-            return alert('⚠️ VIN must be exactly 17 characters.\nCurrent length: ' + vehData.vin.length);
-        }
-
-        // Enforce year input: must be a valid 4-digit year
-        if (vehData.year) {
-            const yearNum = parseInt(vehData.year, 10);
-            if (isNaN(yearNum) || vehData.year.length !== 4 || yearNum < 1900 || yearNum > new Date().getFullYear() + 2) {
-                return alert('⚠️ Vehicle year must be a valid 4-digit year (e.g. 2015).');
-            }
-
-            // Vehicles less than 12 years old require title
-            const vehicleAge = new Date().getFullYear() - yearNum;
-            if (vehicleAge < 12 && !vehData.hasTitle) {
-                return alert(`🚫 TITLE REQUIRED\n\nThis ${vehData.year} vehicle is ${vehicleAge} year(s) old (less than 12 years).\n\nTennessee law requires a title for vehicles less than 12 years old.\nCannot complete purchase without a title.`);
-            }
-        }
-
-        // If no VIN, require VIN area image (except vehicles 12+ years old with title)
-        if (!vehData.vin) {
-            const vinImageInput = vRow.querySelector('.vin-image-input');
-            const hasVinImage = vinImageInput && vinImageInput.files && vinImageInput.files.length > 0;
-            const existingVinImage = vRow.querySelector('.vin-image-existing');
-            const hasExistingImage = existingVinImage && existingVinImage.src && !existingVinImage.src.endsWith('#');
-            if (!hasVinImage && !hasExistingImage) {
-                return alert('⚠️ VIN REQUIRED\n\nNo VIN entered. Please either:\n1. Enter the 17-character VIN, or\n2. Upload a photo of the VIN area on the vehicle.');
-            }
+    // Catalytic converter compliance validation (TN Code § 62-9)
+    const hasCatconvPurchase = currentTransactionType === 'buy' && materials.some(m => isCatconvMaterial(m.material));
+    if (hasCatconvPurchase) {
+        const catconvValidation = validateCatconvCompliance();
+        if (!catconvValidation.valid) {
+            return alert(catconvValidation.message);
         }
     }
     
@@ -488,22 +599,62 @@ async function submitSplitTicket() {
             if (vehData && (vehData.vin || vehData.make || vehData.model)) {
                 try {
                     vehData.ticketId = result.ticketId;
-                    const vResult = await window.electronAPI.invoke('save-vehicle-purchase', vehData);
-                    // Upload VIN image if provided
-                    const vinImageInput = vRow.querySelector('.vin-image-input');
-                    if (vinImageInput && vinImageInput.files && vinImageInput.files.length > 0) {
-                        try {
-                            await window.electronAPI.invoke('save-vin-image', {
-                                vehicleId: vResult.vehicleId,
-                                sourcePath: vinImageInput.files[0].path
-                            });
-                        } catch (imgErr) {
-                            console.error('Error saving VIN image:', imgErr);
+                    const vpResult = await window.electronAPI.invoke('save-vehicle-purchase', vehData);
+
+                    // Save TN § 55-3-203 vehicle compliance data
+                    if (vpResult.vehicleId) {
+                        const vehYear = parseInt(vehData.year, 10) || 0;
+                        const currentYear = new Date().getFullYear();
+                        const isOldVehicle = vehYear > 0 && (currentYear - vehYear >= 12);
+                        const needsThreeDayHold = isOldVehicle && !vehData.hasTitle;
+                        const holdStart = needsThreeDayHold ? new Date().toISOString() : null;
+                        // Calculate 3 business days (skip weekends)
+                        let holdExpiryDate = null;
+                        if (needsThreeDayHold) {
+                            holdExpiryDate = new Date();
+                            let businessDaysAdded = 0;
+                            while (businessDaysAdded < 3) {
+                                holdExpiryDate.setDate(holdExpiryDate.getDate() + 1);
+                                const dayOfWeek = holdExpiryDate.getDay();
+                                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                                    businessDaysAdded++;
+                                }
+                            }
+                        }
+                        const holdExpiry = holdExpiryDate ? holdExpiryDate.toISOString() : null;
+
+                        await window.electronAPI.invoke('save-vehicle-compliance', {
+                            vehiclePurchaseId: vpResult.vehicleId,
+                            sellerThumbprintCollected: vehData.sellerThumbprintCollected,
+                            sellerCertificationSigned: vehData.sellerCertificationSigned,
+                            sellerCertificationText: null,
+                            nmvtisReported: vehData.nmvtisReported,
+                            nmvtisReportDate: vehData.nmvtisReported ? new Date().toISOString() : null,
+                            transportingVehiclePlate: vehData.transportingVehiclePlate,
+                            considerationAmount: vehData.considerationAmount,
+                            threeDayHoldRequired: needsThreeDayHold,
+                            threeDayHoldStart: holdStart,
+                            threeDayHoldExpiry: holdExpiry
+                        });
+
+                        if (needsThreeDayHold) {
+                            alert(`⚠️ 3-DAY HOLD APPLIED\n\nVehicle ${vehData.year} ${vehData.make} ${vehData.model} is 12+ years old and no title was provided.\nPer TN Code § 55-3-203, this vehicle CANNOT be dismantled, crushed, or shredded for 3 business days.\n\nHold expires: ${new Date(holdExpiry).toLocaleDateString()}`);
                         }
                     }
                 } catch (vErr) {
                     console.error('Error saving vehicle data:', vErr);
                 }
+            }
+        }
+
+        // Save catalytic converter compliance data (TN Code § 62-9)
+        if (hasCatconvPurchase) {
+            try {
+                const catconvData = getCatconvComplianceData();
+                catconvData.ticketId = result.ticketId;
+                await window.electronAPI.invoke('save-catconv-purchase', catconvData);
+            } catch (ccErr) {
+                console.error('Error saving catalytic converter compliance data:', ccErr);
             }
         }
 

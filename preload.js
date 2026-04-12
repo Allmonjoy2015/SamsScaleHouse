@@ -48,11 +48,13 @@ const ALLOWED_CHANNELS = [
     'get-all-vehicle-purchases',
     'update-vehicle-purchase',
     'search-vehicles',
-    'save-vin-image',
-    // Ticket Editing
-    'add-ticket-item',
-    'delete-ticket-item',
-    'recalc-ticket-total',
+    // Catalytic Converter Compliance (TN Code § 62-9)
+    'save-catconv-purchase',
+    'get-catconv-purchase',
+    'get-all-catconv-purchases',
+    // Vehicle Purchase Compliance (TN Code § 55-3-203)
+    'save-vehicle-compliance',
+    'get-vehicle-compliance',
     // Voucher and Copper Hold
     'generate-voucher',
     'get-vouchers',
