@@ -17,9 +17,23 @@ class TransactionType(str, Enum):
 
 
 class TransactionStatus(str, Enum):
+    """Lifecycle state of a transaction."""
+
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     VOIDED = "VOIDED"
+
+
+class SellerAuthorizationType(str, Enum):
+    """Authorized seller categories for detached catalytic converters (TN Code § 62-9)."""
+
+    DISMANTLER_RECYCLER = "dismantler_recycler"
+    SCRAP_METAL_DEALER = "scrap_metal_dealer"
+    MOTOR_VEHICLE_DEALER = "motor_vehicle_dealer"
+    MECHANIC_REPAIR = "mechanic_repair"
+    LICENSED_BUSINESS = "licensed_business"
+    INDIVIDUAL_REPLACEMENT = "individual_replacement"
+    CLEAN_AIR_ACT_EXEMPT = "clean_air_act_exempt"
 
 
 @dataclass
@@ -144,4 +158,71 @@ class Transaction:
             f"customer={self.customer.name!r}, "
             f"total=${self.total_amount:.2f}, "
             f"status={self.status.value})"
+        )
+
+
+@dataclass
+class CatalyticConverterPurchase:
+    """Compliance record for detached catalytic converter purchases (TN Code § 62-9).
+
+    Tennessee law effective July 1, 2021 requires scrap metal dealers to verify
+    seller authorization and maintain documentation for all detached catalytic
+    converter transactions.
+    """
+
+    transaction_id: str
+    seller_authorization_type: SellerAuthorizationType
+    seller_license_number: str = ""
+    vehicle_registration_doc: str = ""
+    clean_air_act_exempt: bool = False
+    clean_air_act_cert_info: str = ""
+    seller_documentation_notes: str = ""
+    notification_sent: bool = False
+    record_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def __post_init__(self) -> None:
+        if not self.clean_air_act_exempt and self.seller_authorization_type == SellerAuthorizationType.CLEAN_AIR_ACT_EXEMPT:
+            raise ValueError(
+                "seller_authorization_type cannot be CLEAN_AIR_ACT_EXEMPT "
+                "when clean_air_act_exempt is False"
+            )
+
+    def __str__(self) -> str:
+        return (
+            f"CatalyticConverterPurchase(txn={self.transaction_id[:8]}, "
+            f"auth={self.seller_authorization_type.value})"
+        )
+
+
+@dataclass
+class VehiclePurchaseCompliance:
+    """Compliance record for vehicle purchases per TN Code § 55-3-203.
+
+    Tracks seller certification, thumbprint collection, NMVTIS reporting,
+    and the mandatory 3-day hold for 12+ year vehicles without title.
+    """
+
+    vehicle_purchase_id: str
+    seller_thumbprint_collected: bool = False
+    seller_certification_signed: bool = False
+    nmvtis_reported: bool = False
+    nmvtis_report_date: Optional[datetime] = None
+    transporting_vehicle_plate: str = ""
+    consideration_amount: float = 0.0
+    three_day_hold_required: bool = False
+    three_day_hold_start: Optional[datetime] = None
+    three_day_hold_expiry: Optional[datetime] = None
+    record_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def __post_init__(self) -> None:
+        if self.consideration_amount < 0:
+            raise ValueError("consideration_amount must be non-negative")
+
+    def __str__(self) -> str:
+        return (
+            f"VehiclePurchaseCompliance(vp={self.vehicle_purchase_id[:8]}, "
+            f"thumbprint={self.seller_thumbprint_collected}, "
+            f"cert={self.seller_certification_signed})"
         )
