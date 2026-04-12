@@ -20,7 +20,8 @@ if (!fs.existsSync(locationImagesPath)) {
 }
 
 function toTitleCase(str) {
-    return (str || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    const normalized = String(str || '').trim().replace(/\s+/g, ' ');
+    return normalized.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function initializeDatabase() {
