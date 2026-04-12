@@ -572,7 +572,7 @@
 
     <div id="ticketModal" class="modal">
         <div class="modal-content" style="max-width:700px;">
-            <h3 style="margin-top:0;">📋 TICKET DETAILS & OVERRIDE</h3>
+            <h3 style="margin-top:0;">📋 TICKET DETAILS — Edit, Override & Reprint</h3>
             <div style="max-height:400px; overflow-y:auto; margin-bottom:20px;">
                 <table class="responsive-table" style="width:100%; border-collapse:collapse;">
                     <thead>
@@ -595,8 +595,10 @@
                 </div>
             </div>
             
-            <div style="display:flex; gap:10px;">
-                <button class="btn-complete" onclick="printTicketPDF()" style="flex:1; background:#2196F3;">🖨️ PRINT PDF</button>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn-complete" onclick="printTicketPDF()" style="flex:1; background:#2196F3;">🖨️ PRINT ORIGINAL</button>
+                <button class="btn-complete" onclick="reprintTicketPDF()" style="flex:1; background:#ff9800;">🖨️ REPRINT</button>
+                <button class="btn-complete" onclick="reprintVoucher(selectedTicketData?.transaction?.id)" style="flex:1; background:#9c27b0;">🎫 REPRINT VOUCHER</button>
                 <button onclick="closeTicketModal()" style="flex:1; padding:15px; border:none; border-radius:6px; background:var(--danger); color:white; font-weight:bold; cursor:pointer;">CLOSE</button>
             </div>
         </div>

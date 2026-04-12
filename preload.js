@@ -68,6 +68,7 @@ const ALLOWED_CHANNELS = [
     // Inventory & Pricing
     'add-inventory',
     'get-inventory',
+    'delete-inventory',
     'update-product-price',
     'get-price-history',
     // Customer Balances

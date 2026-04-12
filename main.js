@@ -12,11 +12,15 @@ const db = new sqlite3.Database(dbPath);
 // Secure folder for Driver's License images and location images
 const imagesPath = path.join(app.getPath('userData'), 'dl_images');
 const locationImagesPath = path.join(app.getPath('userData'), 'location_images');
+const vinImagesPath = path.join(app.getPath('userData'), 'vin_images');
 if (!fs.existsSync(imagesPath)) { 
     fs.mkdirSync(imagesPath, { recursive: true }); 
 }
 if (!fs.existsSync(locationImagesPath)) { 
     fs.mkdirSync(locationImagesPath, { recursive: true }); 
+}
+if (!fs.existsSync(vinImagesPath)) { 
+    fs.mkdirSync(vinImagesPath, { recursive: true }); 
 }
 
 function initializeDatabase() {
@@ -112,6 +116,13 @@ function initializeDatabase() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_catconv_ticket ON catalytic_converter_purchases(ticket_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_catconv_seller_type ON catalytic_converter_purchases(seller_authorization_type)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_veh_compliance_vp ON vehicle_purchase_compliance(vehicle_purchase_id)`);
+
+        // Add vin_image column to vehicle_purchases (safe to re-run)
+        db.run(`ALTER TABLE vehicle_purchases ADD COLUMN vin_image TEXT`, (err) => {
+            if (err && !err.message.includes('duplicate column name')) {
+                console.error('Migration error adding vin_image:', err.message);
+            }
+        });
 
         // Ensure vehicle material exists on every DB (safe to re-run)
         db.get(`SELECT id FROM products WHERE material_name = 'Whole Vehicle'`, (err, row) => {
@@ -811,11 +822,24 @@ ipcMain.handle('get-copper-holds', () => {
             `SELECT ch.*, t.id as transaction_id, t.date, c.name FROM copper_holds ch
              JOIN transactions t ON ch.ticket_id = t.id
              JOIN customers c ON t.customer_id = c.id
-             WHERE ch.is_released = 0 AND ch.hold_expiry > datetime('now')
-             ORDER BY ch.hold_expiry ASC`,
+             ORDER BY ch.is_released ASC, ch.hold_expiry ASC`,
             (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows || []);
+            }
+        );
+    });
+});
+
+ipcMain.handle('release-copper-hold', (e, holdId) => {
+    return new Promise((resolve, reject) => {
+        const releaseDate = new Date().toISOString();
+        db.run(
+            `UPDATE copper_holds SET is_released = 1, release_date = ? WHERE id = ?`,
+            [releaseDate, holdId],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, changes: this.changes });
             }
         );
     });
@@ -1025,6 +1049,82 @@ ipcMain.handle('get-inventory', () => {
                 else resolve(rows || []);
             }
         );
+    });
+});
+
+// Delete Inventory
+ipcMain.handle('delete-inventory', (e, id) => {
+    return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM inventory WHERE id = ?`, [id], function(err) {
+            if (err) reject(err);
+            else resolve({ success: true, changes: this.changes });
+        });
+    });
+});
+
+// --- TICKET EDITING HANDLERS ---
+
+// Add a new item to an existing ticket
+ipcMain.handle('add-ticket-item', (e, { ticketId, materialName, netWeight, totalPrice }) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO ticket_items (ticket_id, material_name, net_weight, total_price) VALUES (?, ?, ?, ?)`,
+            [ticketId, materialName, netWeight, totalPrice],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, itemId: this.lastID });
+            }
+        );
+    });
+});
+
+// Delete an item from a ticket
+ipcMain.handle('delete-ticket-item', (e, itemId) => {
+    return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM ticket_items WHERE id = ?`, [itemId], function(err) {
+            if (err) reject(err);
+            else resolve({ success: true, changes: this.changes });
+        });
+    });
+});
+
+// Recalculate ticket total from its items
+ipcMain.handle('recalc-ticket-total', (e, ticketId) => {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT COALESCE(SUM(total_price), 0) as total FROM ticket_items WHERE ticket_id = ?`,
+            [ticketId],
+            (err, row) => {
+                if (err) return reject(err);
+                const newTotal = row.total;
+                db.run(
+                    `UPDATE transactions SET total_amount = ?, base_total = ? WHERE id = ?`,
+                    [newTotal, newTotal, ticketId],
+                    function(err2) {
+                        if (err2) reject(err2);
+                        else resolve({ success: true, newTotal });
+                    }
+                );
+            }
+        );
+    });
+});
+
+// Save VIN area image
+ipcMain.handle('save-vin-image', async (e, { vehicleId, sourcePath }) => {
+    const ext = path.extname(sourcePath);
+    const fileName = `vin_${vehicleId}_${Date.now()}${ext}`;
+    const destPath = path.join(vinImagesPath, fileName);
+
+    return new Promise((resolve, reject) => {
+        fs.copyFile(sourcePath, destPath, (err) => {
+            if (err) return reject(err);
+
+            db.run(`UPDATE vehicle_purchases SET vin_image=? WHERE id=?`, [destPath, vehicleId], (err) => {
+                if (err) reject(err);
+                else resolve({ path: destPath });
+            });
+        });
     });
 });
 
