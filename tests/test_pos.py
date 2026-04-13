@@ -162,3 +162,54 @@ class TestTransactionWorkflow:
         txn = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
         with pytest.raises(POSError, match="Material not found"):
             s.weigh_and_add_line(txn.transaction_id, "no-such-material")
+
+    def test_get_transaction(self, populated_session: POSSession):
+        s = populated_session
+        txn = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
+        retrieved = s.get_transaction(txn.transaction_id)
+        assert retrieved is txn
+
+    def test_get_nonexistent_transaction_raises(self, session: POSSession):
+        with pytest.raises(POSError, match="Transaction not found"):
+            session.get_transaction("no-such-transaction")
+
+    def test_list_transactions_no_filter(self, populated_session: POSSession):
+        s = populated_session
+        txn1 = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
+        txn2 = s.start_transaction(TransactionType.SELL, s._customer.customer_id)
+        all_txns = s.list_transactions()
+        assert txn1 in all_txns
+        assert txn2 in all_txns
+
+    def test_void_creates_audit_event(self, populated_session: POSSession):
+        s = populated_session
+        txn = s.start_transaction(TransactionType.BUY, s._customer.customer_id)
+        s.void_transaction(txn.transaction_id)
+        events = s.audit.events_for(txn.transaction_id)
+        assert any(e.action == AuditAction.TRANSACTION_VOIDED for e in events)
+
+    def test_update_customer_creates_audit_event(self, session: POSSession):
+        customer = session.add_customer("Old Name")
+        session.update_customer(customer.customer_id, name="New Name", phone="555-9876")
+        events = session.audit.events_for(customer.customer_id)
+        assert any(e.action == AuditAction.CUSTOMER_UPDATED for e in events)
+
+    def test_add_material_creates_audit_event(self, session: POSSession):
+        mat = session.add_material("Iron", price_per_lb=0.05)
+        events = session.audit.events_for(mat.material_id)
+        assert any(e.action == AuditAction.MATERIAL_CREATED for e in events)
+
+    def test_start_transaction_with_notes(self, populated_session: POSSession):
+        s = populated_session
+        txn = s.start_transaction(
+            TransactionType.BUY, s._customer.customer_id, notes="Test note"
+        )
+        assert txn.notes == "Test note"
+
+    def test_complete_transaction_unknown_raises(self, session: POSSession):
+        with pytest.raises(POSError, match="Transaction not found"):
+            session.complete_transaction("no-such-transaction")
+
+    def test_void_transaction_unknown_raises(self, session: POSSession):
+        with pytest.raises(POSError, match="Transaction not found"):
+            session.void_transaction("no-such-transaction")
