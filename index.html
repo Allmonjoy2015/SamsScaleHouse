@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Sam's Recycling LLC</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
     <style>
         :root { --primary: #2c3e50; --secondary: #3498db; --success: #27ae60; --danger: #e74c3c; --light: #f4f7f6; --warning: #f39c12; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,11 +64,15 @@
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; }
         .modal-content { background: white; width: 400px; margin: 100px auto; padding: 30px; border-radius: 10px; }
+        .sidebar-logo { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); display: block; margin: 0 auto 8px; }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h2 style="text-align:center; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1)">Sam's Recycling</h2>
+        <div style="text-align:center; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1)">
+            <img src="https://github.com/user-attachments/assets/9a8be7ad-d4c2-4b45-8990-435370b284a4" alt="Sam's Recycling Logo" onerror="this.src='assets/logo.svg'" class="sidebar-logo">
+            <h2 style="font-size:16px;">Sam's Recycling</h2>
+        </div>
         
         <span class="admin-label">Operations</span>
         <button class="nav-item active" onclick="showView('ticket-view'); initTicketView();">⚖️ NEW TICKET</button>
