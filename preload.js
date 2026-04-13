@@ -48,6 +48,13 @@ const ALLOWED_CHANNELS = [
     'get-all-vehicle-purchases',
     'update-vehicle-purchase',
     'search-vehicles',
+    // Catalytic Converter Compliance (TN Code § 62-9)
+    'save-catconv-purchase',
+    'get-catconv-purchase',
+    'get-all-catconv-purchases',
+    // Vehicle Purchase Compliance (TN Code § 55-3-203)
+    'save-vehicle-compliance',
+    'get-vehicle-compliance',
     // Voucher and Copper Hold
     'generate-voucher',
     'get-vouchers',
@@ -61,6 +68,7 @@ const ALLOWED_CHANNELS = [
     // Inventory & Pricing
     'add-inventory',
     'get-inventory',
+    'delete-inventory',
     'update-product-price',
     'get-price-history',
     // Customer Balances

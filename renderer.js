@@ -6,6 +6,10 @@ let currentTargetId = null, currentRowId = null, customerSearchTimeout = null;
 let currentFocusedRowId = null;
 let lastScaleWeight = 0;
 
+function toTitleCase(str) {
+    return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function showView(v) {
     document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
     document.getElementById(v).style.display = 'block';
@@ -97,6 +101,36 @@ async function initTicketView() {
     document.querySelectorAll('.vehicle-info-row').forEach(el => el.remove());
     document.getElementById('splitWeighingBody').innerHTML = '';
     document.getElementById('grandTotalDisplay').innerText = '0.00';
+    // Reset transaction type to purchase (buy) by default
+    currentTransactionType = 'buy';
+    const txTypeSelect = document.getElementById('transactionType');
+    if (txTypeSelect) txTypeSelect.value = 'buy';
+    document.getElementById('copperExemptionSection').style.display = 'block';
+    // Reset catalytic converter compliance section
+    const catconvSection = document.getElementById('catconvComplianceSection');
+    if (catconvSection) {
+        catconvSection.style.display = 'none';
+        const catconvExempt = document.getElementById('catconvCleanAirExempt');
+        if (catconvExempt) catconvExempt.checked = false;
+        const catconvAuth = document.getElementById('catconvSellerAuthType');
+        if (catconvAuth) catconvAuth.value = '';
+        const catconvLicense = document.getElementById('catconvSellerLicense');
+        if (catconvLicense) catconvLicense.value = '';
+        const catconvVehReg = document.getElementById('catconvVehicleRegDoc');
+        if (catconvVehReg) catconvVehReg.value = '';
+        const catconvCertInfo = document.getElementById('catconvCleanAirCertInfo');
+        if (catconvCertInfo) catconvCertInfo.value = '';
+        const catconvNotes = document.getElementById('catconvDocNotes');
+        if (catconvNotes) catconvNotes.value = '';
+        const cleanAirCertField = document.getElementById('cleanAirCertField');
+        if (cleanAirCertField) cleanAirCertField.style.display = 'none';
+        const catconvAuthSection = document.getElementById('catconvAuthSection');
+        if (catconvAuthSection) catconvAuthSection.style.display = 'block';
+        const catconvLicenseField = document.getElementById('catconvLicenseField');
+        if (catconvLicenseField) catconvLicenseField.style.display = 'none';
+        const catconvVehicleRegField = document.getElementById('catconvVehicleRegField');
+        if (catconvVehicleRegField) catconvVehicleRegField.style.display = 'none';
+    }
     addSplitRow(false);
     document.getElementById('custName').focus();
 }
@@ -155,6 +189,7 @@ function calculateRow(id, source) {
 
     calculateGrandTotal();
     checkCopperHold();
+    checkCatconvCompliance();
 
     // Show/hide vehicle info panel when material changes
     if (source === 'material-change') {
@@ -217,11 +252,18 @@ let currentTransactionType = 'buy'; // Default: purchase scrap
 // --- VEHICLE PURCHASE FIELDS ---
 
 const VEHICLE_MATERIAL_KEYWORDS = ['whole vehicle', 'car', 'truck', 'van', 'suv', 'auto', 'vehicle'];
+const CATCONV_MATERIAL_KEYWORDS = ['catalytic converter', 'catalytic', 'converter', 'cat con'];
 
 function isVehicleMaterial(materialName) {
     if (!materialName) return false;
     const lower = materialName.toLowerCase();
     return VEHICLE_MATERIAL_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function isCatconvMaterial(materialName) {
+    if (!materialName) return false;
+    const lower = materialName.toLowerCase();
+    return CATCONV_MATERIAL_KEYWORDS.some(kw => lower.includes(kw));
 }
 
 function checkVehicleFields(rowId) {
@@ -294,6 +336,35 @@ function checkVehicleFields(rowId) {
                         </label>
                         <span class="veh-doc-warning" style="color:#e74c3c; font-weight:bold; font-size:12px; display:none;">⚠️ No title or registration on file</span>
                     </div>
+                    <!-- TN Code § 55-3-203 Compliance Fields -->
+                    <div style="margin-top:10px; padding:12px; background:#fff8e1; border:1px solid #ffcc02; border-radius:4px;">
+                        <div style="font-weight:bold; font-size:11px; color:#e65100; margin-bottom:8px;">📋 TN § 55-3-203 COMPLIANCE (Motor Vehicle Dismantler/Scrap Processor)</div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                            <div>
+                                <label style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Transporting Vehicle Plate</label>
+                                <input type="text" class="veh-transporting-plate" placeholder="Plate # of transporting vehicle" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Consideration Amount ($)</label>
+                                <input type="number" class="veh-consideration" step="0.01" min="0" placeholder="0.00" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            </div>
+                            <div style="display:flex; flex-direction:column; justify-content:flex-end;">
+                                <label style="display:flex; align-items:center; gap:6px; font-weight:bold; font-size:11px;">
+                                    <input type="checkbox" class="veh-thumbprint-collected"> Seller Thumbprint Collected
+                                </label>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:15px; margin-top:8px; align-items:center;">
+                            <label style="display:flex; align-items:center; gap:6px; font-weight:bold; font-size:11px;">
+                                <input type="checkbox" class="veh-seller-cert-signed"> Seller Certification Signed
+                            </label>
+                            <label style="display:flex; align-items:center; gap:6px; font-weight:bold; font-size:11px;">
+                                <input type="checkbox" class="veh-nmvtis-reported"> NMVTIS Reported
+                            </label>
+                            <span class="veh-compliance-warning" style="color:#e65100; font-weight:bold; font-size:11px; display:none;">⚠️ Compliance fields incomplete</span>
+                        </div>
+                        <p style="font-size:10px; color:#888; margin:6px 0 0 0;">Seller must sign statement certifying lawful right to sell, no liens, vehicle will never be titled again. Thumbprint required. Report to NMVTIS within 24 hours. 3-day hold required for 12+ year vehicles without title.</p>
+                    </div>
                 </td>
             `;
             row.after(panel);
@@ -303,14 +374,25 @@ function checkVehicleFields(rowId) {
             const regCheck = panel.querySelector('.veh-has-reg');
             const titleNumWrap = panel.querySelector('.veh-title-num-wrap');
             const docWarning = panel.querySelector('.veh-doc-warning');
+            const titleRequiredWarning = panel.querySelector('.veh-title-required-warning');
+            const yearInput = panel.querySelector('.veh-year');
 
-            titleCheck.addEventListener('change', () => {
+            const updateWarnings = () => {
                 titleNumWrap.style.display = titleCheck.checked ? 'inline-block' : 'none';
                 docWarning.style.display = (!titleCheck.checked && !regCheck.checked) ? 'inline' : 'none';
-            });
-            regCheck.addEventListener('change', () => {
-                docWarning.style.display = (!titleCheck.checked && !regCheck.checked) ? 'inline' : 'none';
-            });
+                // Show title required warning for vehicles less than 12 years old
+                const yearVal = parseInt(yearInput.value, 10);
+                if (yearVal && !isNaN(yearVal)) {
+                    const vehicleAge = new Date().getFullYear() - yearVal;
+                    titleRequiredWarning.style.display = (vehicleAge < 12 && !titleCheck.checked) ? 'block' : 'none';
+                } else {
+                    titleRequiredWarning.style.display = 'none';
+                }
+            };
+
+            titleCheck.addEventListener('change', updateWarnings);
+            regCheck.addEventListener('change', updateWarnings);
+            yearInput.addEventListener('input', updateWarnings);
 
             // Show warning initially
             docWarning.style.display = 'inline';
@@ -335,7 +417,13 @@ function getVehicleDataFromRow(rowId) {
         description: (panel.querySelector('.veh-description').value || '').trim(),
         hasTitle: panel.querySelector('.veh-has-title').checked,
         hasRegistration: panel.querySelector('.veh-has-reg').checked,
-        titleNumber: (panel.querySelector('.veh-title-number').value || '').trim()
+        titleNumber: (panel.querySelector('.veh-title-number').value || '').trim(),
+        // TN § 55-3-203 Compliance
+        transportingVehiclePlate: (panel.querySelector('.veh-transporting-plate')?.value || '').trim(),
+        considerationAmount: parseFloat(panel.querySelector('.veh-consideration')?.value) || 0,
+        sellerThumbprintCollected: panel.querySelector('.veh-thumbprint-collected')?.checked || false,
+        sellerCertificationSigned: panel.querySelector('.veh-seller-cert-signed')?.checked || false,
+        nmvtisReported: panel.querySelector('.veh-nmvtis-reported')?.checked || false
     };
 }
 
@@ -361,6 +449,86 @@ function checkCopperHold() {
     }
 }
 
+// --- CATALYTIC CONVERTER COMPLIANCE (TN Code § 62-9) ---
+
+// Check if any ticket row contains catalytic converter material (purchase mode)
+function checkCatconvCompliance() {
+    const catconvSection = document.getElementById('catconvComplianceSection');
+    if (!catconvSection) return;
+
+    if (currentTransactionType !== 'buy') {
+        catconvSection.style.display = 'none';
+        return;
+    }
+
+    let hasCatconvMaterial = false;
+    document.querySelectorAll('.split-row .mat-select').forEach(sel => {
+        if (sel.selectedIndex > 0 && isCatconvMaterial(sel.options[sel.selectedIndex].text)) {
+            hasCatconvMaterial = true;
+        }
+    });
+
+    catconvSection.style.display = hasCatconvMaterial ? 'block' : 'none';
+}
+
+function toggleCleanAirExemption() {
+    const isExempt = document.getElementById('catconvCleanAirExempt').checked;
+    const certField = document.getElementById('cleanAirCertField');
+    const authSection = document.getElementById('catconvAuthSection');
+    if (certField) certField.style.display = isExempt ? 'block' : 'none';
+    if (authSection) authSection.style.display = isExempt ? 'none' : 'block';
+}
+
+function toggleCatconvLicenseField() {
+    const authType = document.getElementById('catconvSellerAuthType').value;
+    const licenseField = document.getElementById('catconvLicenseField');
+    const vehicleRegField = document.getElementById('catconvVehicleRegField');
+
+    // Show license field for all business-type authorizations
+    const businessTypes = ['dismantler_recycler', 'scrap_metal_dealer', 'motor_vehicle_dealer', 'mechanic_repair', 'licensed_business'];
+    licenseField.style.display = businessTypes.includes(authType) ? 'block' : 'none';
+
+    // Show vehicle registration field for individual replacement
+    vehicleRegField.style.display = (authType === 'individual_replacement') ? 'block' : 'none';
+}
+
+function getCatconvComplianceData() {
+    const isExempt = document.getElementById('catconvCleanAirExempt')?.checked || false;
+    return {
+        sellerAuthorizationType: isExempt ? 'clean_air_act_exempt' : (document.getElementById('catconvSellerAuthType')?.value || ''),
+        sellerLicenseNumber: document.getElementById('catconvSellerLicense')?.value?.trim() || '',
+        vehicleRegistrationDoc: document.getElementById('catconvVehicleRegDoc')?.value?.trim() || '',
+        cleanAirActExempt: isExempt,
+        cleanAirActCertInfo: document.getElementById('catconvCleanAirCertInfo')?.value?.trim() || '',
+        sellerDocumentationNotes: document.getElementById('catconvDocNotes')?.value?.trim() || '',
+        notificationSent: false
+    };
+}
+
+function validateCatconvCompliance() {
+    const data = getCatconvComplianceData();
+
+    if (data.cleanAirActExempt) {
+        // Clean Air Act exempt — no further checks
+        return { valid: true, data };
+    }
+
+    if (!data.sellerAuthorizationType) {
+        return { valid: false, message: 'Catalytic Converter Compliance:\nSeller authorization type is REQUIRED per TN Code § 62-9.\nPlease select the seller\'s authorization category.' };
+    }
+
+    const businessTypes = ['dismantler_recycler', 'scrap_metal_dealer', 'motor_vehicle_dealer', 'mechanic_repair', 'licensed_business'];
+    if (businessTypes.includes(data.sellerAuthorizationType) && !data.sellerLicenseNumber) {
+        return { valid: false, message: 'Catalytic Converter Compliance:\nSeller license/registration number is REQUIRED.\nPer TN Code § 62-9, dealer must obtain and maintain a copy of seller\'s license.' };
+    }
+
+    if (data.sellerAuthorizationType === 'individual_replacement' && !data.vehicleRegistrationDoc) {
+        return { valid: false, message: 'Catalytic Converter Compliance:\nVehicle registration documentation is REQUIRED for individual sellers.\nIndividual must provide documentation showing converter was replaced from their registered vehicle.' };
+    }
+
+    return { valid: true, data };
+}
+
 async function submitSplitTicket() {
     const btn = document.getElementById('submitBtn'), materials = [];
     document.querySelectorAll('.split-row').forEach(row => {
@@ -379,16 +547,25 @@ async function submitSplitTicket() {
             });
         }
     });
-    const custName = document.getElementById('custName').value.trim();
+    const custName = toTitleCase(document.getElementById('custName').value.trim());
     const data = {
         customer_name: custName || 'Walk-in',
         id_number: document.getElementById('custId').value.trim(),
-        vehicle_plate: document.getElementById('custPlate').value.trim(),
+        vehicle_plate: document.getElementById('custPlate').value.trim().toUpperCase(),
         total_amount: parseFloat(document.getElementById('grandTotalDisplay').innerText),
         materials,
         transaction_type: currentTransactionType
     };
     if(materials.length === 0) return alert("Please add at least one material or weight entry");
+
+    // Catalytic converter compliance validation (TN Code § 62-9)
+    const hasCatconvPurchase = currentTransactionType === 'buy' && materials.some(m => isCatconvMaterial(m.material));
+    if (hasCatconvPurchase) {
+        const catconvValidation = validateCatconvCompliance();
+        if (!catconvValidation.valid) {
+            return alert(catconvValidation.message);
+        }
+    }
     
     btn.disabled = true;
     btn.innerText = "SAVING...";
@@ -420,17 +597,68 @@ async function submitSplitTicket() {
         }
         
         // Save vehicle purchase data for any vehicle-type material rows
-        const vehicleRows = document.querySelectorAll('.vehicle-info-row');
         for (const vRow of vehicleRows) {
             const rowId = vRow.id.replace('vehicle-panel-', '');
             const vehData = getVehicleDataFromRow(rowId);
             if (vehData && (vehData.vin || vehData.make || vehData.model)) {
                 try {
                     vehData.ticketId = result.ticketId;
-                    await window.electronAPI.invoke('save-vehicle-purchase', vehData);
+                    const vpResult = await window.electronAPI.invoke('save-vehicle-purchase', vehData);
+
+                    // Save TN § 55-3-203 vehicle compliance data
+                    if (vpResult.vehicleId) {
+                        const vehYear = parseInt(vehData.year, 10) || 0;
+                        const currentYear = new Date().getFullYear();
+                        const isOldVehicle = vehYear > 0 && (currentYear - vehYear >= 12);
+                        const needsThreeDayHold = isOldVehicle && !vehData.hasTitle;
+                        const holdStart = needsThreeDayHold ? new Date().toISOString() : null;
+                        // Calculate 3 business days (skip weekends)
+                        let holdExpiryDate = null;
+                        if (needsThreeDayHold) {
+                            holdExpiryDate = new Date();
+                            let businessDaysAdded = 0;
+                            while (businessDaysAdded < 3) {
+                                holdExpiryDate.setDate(holdExpiryDate.getDate() + 1);
+                                const dayOfWeek = holdExpiryDate.getDay();
+                                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                                    businessDaysAdded++;
+                                }
+                            }
+                        }
+                        const holdExpiry = holdExpiryDate ? holdExpiryDate.toISOString() : null;
+
+                        await window.electronAPI.invoke('save-vehicle-compliance', {
+                            vehiclePurchaseId: vpResult.vehicleId,
+                            sellerThumbprintCollected: vehData.sellerThumbprintCollected,
+                            sellerCertificationSigned: vehData.sellerCertificationSigned,
+                            sellerCertificationText: null,
+                            nmvtisReported: vehData.nmvtisReported,
+                            nmvtisReportDate: vehData.nmvtisReported ? new Date().toISOString() : null,
+                            transportingVehiclePlate: vehData.transportingVehiclePlate,
+                            considerationAmount: vehData.considerationAmount,
+                            threeDayHoldRequired: needsThreeDayHold,
+                            threeDayHoldStart: holdStart,
+                            threeDayHoldExpiry: holdExpiry
+                        });
+
+                        if (needsThreeDayHold) {
+                            alert(`⚠️ 3-DAY HOLD APPLIED\n\nVehicle ${vehData.year} ${vehData.make} ${vehData.model} is 12+ years old and no title was provided.\nPer TN Code § 55-3-203, this vehicle CANNOT be dismantled, crushed, or shredded for 3 business days.\n\nHold expires: ${new Date(holdExpiry).toLocaleDateString()}`);
+                        }
+                    }
                 } catch (vErr) {
                     console.error('Error saving vehicle data:', vErr);
                 }
+            }
+        }
+
+        // Save catalytic converter compliance data (TN Code § 62-9)
+        if (hasCatconvPurchase) {
+            try {
+                const catconvData = getCatconvComplianceData();
+                catconvData.ticketId = result.ticketId;
+                await window.electronAPI.invoke('save-catconv-purchase', catconvData);
+            } catch (ccErr) {
+                console.error('Error saving catalytic converter compliance data:', ccErr);
             }
         }
 
@@ -463,7 +691,23 @@ function printPaymentVoucher(ticketId, voucherCode, amount, customerName) {
     expiryDate.setDate(expiryDate.getDate() + 30);
     
     const voucherHTML = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f9f9f9; border: 3px solid #ff6b00;">
+    <style>
+        .voucher-container { position: relative; }
+        .voucher-container::before {
+            content: "ORIGINAL";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 70px;
+            font-weight: bold;
+            color: rgba(200, 200, 200, 0.2);
+            z-index: 0;
+            pointer-events: none;
+            letter-spacing: 8px;
+        }
+    </style>
+    <div class="voucher-container" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f9f9f9; border: 3px solid #ff6b00;">
         <div style="text-align: center; border-bottom: 3px double #ff6b00; padding-bottom: 20px;">
             <h1 style="margin: 0; color: #ff6b00;">PAYMENT VOUCHER</h1>
             <p style="margin: 5px 0; color: #666;">⚠️ 5-DAY COPPER HOLD - TENNESSEE LAW</p>
@@ -805,7 +1049,7 @@ async function handleLocationImageUpload(e) {
 
 async function saveCrmCustomer() {
     const id = document.getElementById('crmId').value;
-    const name = document.getElementById('crmName').value.trim();
+    const name = toTitleCase(document.getElementById('crmName').value.trim());
     
     if(!id) return alert("Select a customer from the list or click 'Create New Customer'.");
     if(!name) return alert("Customer Name is required.");
@@ -815,7 +1059,7 @@ async function saveCrmCustomer() {
         phone: document.getElementById('crmPhone').value,
         id_number: document.getElementById('crmIdNumber').value,
         dl_expiration: document.getElementById('crmExpiration').value,
-        vehicle_plate: document.getElementById('crmPlate').value,
+        vehicle_plate: document.getElementById('crmPlate').value.trim().toUpperCase(),
         truck_description: document.getElementById('crmTruck').value,
         address: document.getElementById('crmAddress').value,
         email: document.getElementById('crmEmail').value,
@@ -916,11 +1160,14 @@ function showTicketModal(data) {
     const modal = document.getElementById('ticketModal');
 
     let itemsHtml = items.map((item, idx) => `
-        <tr>
+        <tr data-item-id="${item.id}">
             <td>${item.material_name}</td>
             <td>${item.net_weight} lbs</td>
             <td><input type="number" class="item-price-${item.id}" value="${item.total_price.toFixed(2)}" step="0.01"></td>
-            <td><button class="btn-action" onclick="overrideItemPrice(${item.id}, ${item.ticket_id}, ${idx})">✎ Edit</button></td>
+            <td>
+                <button class="btn-action" onclick="overrideItemPrice(${item.id}, ${item.ticket_id}, ${idx})">✎ Edit</button>
+                <button class="btn-action" onclick="deleteTicketItem(${item.id}, ${transaction.id})" style="color:red; margin-left:3px;" title="Delete item">✖</button>
+            </td>
         </tr>
     `).join('');
 
@@ -943,9 +1190,39 @@ function showTicketModal(data) {
             <div style="margin-top:8px; font-size:12px; font-weight:bold;">${titleStatus} | ${regStatus}${vehicle.title_number ? ' (Title #' + vehicle.title_number + ')' : ''}</div>
         </td></tr>`;
     }
+
+    // Add new item row
+    let productOpts = productsList.map(p => `<option value="${p.material_name}" data-price="${p.price_per_lb}">${p.material_name}</option>`).join('');
+    itemsHtml += `
+    <tr id="addItemRow" style="background:#e8f5e9;">
+        <td>
+            <select id="newItemMaterial" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px;">
+                <option value="">+ Add Item...</option>
+                ${productOpts}
+            </select>
+        </td>
+        <td><input type="number" id="newItemWeight" placeholder="lbs" step="0.01" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
+        <td><input type="number" id="newItemPrice" placeholder="$" step="0.01" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px;"></td>
+        <td><button class="btn-action" onclick="addItemToTicket(${transaction.id})" style="background:#27ae60; color:white; font-weight:bold;">+ Add</button></td>
+    </tr>`;
     
     const itemsContainer = document.getElementById('ticketItemsTable') || createTicketItemsTable();
     itemsContainer.innerHTML = itemsHtml;
+
+    // Wire up material select to auto-fill price
+    const matSelect = document.getElementById('newItemMaterial');
+    if (matSelect) {
+        matSelect.addEventListener('change', () => {
+            const opt = matSelect.options[matSelect.selectedIndex];
+            const pricePerLb = parseFloat(opt.getAttribute('data-price')) || 0;
+            const weightInput = document.getElementById('newItemWeight');
+            const priceInput = document.getElementById('newItemPrice');
+            const weight = parseFloat(weightInput.value) || 0;
+            if (pricePerLb > 0 && weight > 0) {
+                priceInput.value = (weight * pricePerLb).toFixed(2);
+            }
+        });
+    }
     
     const totalInput = document.getElementById('ticketTotalOverride') || createTicketTotalInput();
     totalInput.value = transaction.total_amount.toFixed(2);
@@ -953,6 +1230,50 @@ function showTicketModal(data) {
     totalInput.dataset.baseTotal = transaction.base_total || transaction.total_amount;
     
     modal.style.display = 'block';
+}
+
+// Add a new item to an existing ticket
+async function addItemToTicket(ticketId) {
+    const matSelect = document.getElementById('newItemMaterial');
+    const weightInput = document.getElementById('newItemWeight');
+    const priceInput = document.getElementById('newItemPrice');
+
+    const materialName = matSelect.value;
+    const netWeight = parseFloat(weightInput.value) || 0;
+    const totalPrice = parseFloat(priceInput.value) || 0;
+
+    if (!materialName) return alert('Please select a material');
+    if (netWeight <= 0) return alert('Please enter a valid weight');
+    if (totalPrice <= 0) return alert('Please enter a valid price');
+
+    try {
+        await window.electronAPI.invoke('add-ticket-item', { ticketId, materialName, netWeight, totalPrice });
+        await window.electronAPI.invoke('recalc-ticket-total', ticketId);
+        // Reload the ticket
+        await viewTicketWithDetails(ticketId);
+        loadTransactions();
+        showToast('✅ Item added to ticket');
+    } catch (err) {
+        console.error('Error adding item:', err);
+        alert('Error adding item to ticket');
+    }
+}
+
+// Delete an item from an existing ticket
+async function deleteTicketItem(itemId, ticketId) {
+    if (!confirm('Delete this item from the ticket?')) return;
+
+    try {
+        await window.electronAPI.invoke('delete-ticket-item', itemId);
+        await window.electronAPI.invoke('recalc-ticket-total', ticketId);
+        // Reload the ticket
+        await viewTicketWithDetails(ticketId);
+        loadTransactions();
+        showToast('✅ Item removed from ticket');
+    } catch (err) {
+        console.error('Error deleting item:', err);
+        alert('Error deleting ticket item');
+    }
 }
 
 function createTicketItemsTable() {
@@ -1030,19 +1351,69 @@ async function overrideTicketTotal() {
     }
 }
 
-function printTicketPDF() {
-    if (!selectedTicketData) {
-        return alert('No ticket selected');
-    }
+// Ownership Agreement legal text
+const OWNERSHIP_AGREEMENT_TEXT = `<div style="margin-top: 30px; padding: 15px; border: 2px solid #333; border-radius: 4px; font-size: 10px; line-height: 1.5; page-break-inside: avoid;">
+    <h4 style="margin: 0 0 8px 0; text-align: center; font-size: 12px; text-transform: uppercase;">OWNERSHIP AFFIRMATION AND INDEMNIFICATION AGREEMENT</h4>
+    <p style="margin: 0 0 6px 0;">The undersigned Seller, in consideration of CMC Recycling LLC d.b.a Sam&#96;s Recycling (hereinafter &lsquo;Buyer&rsquo;) purchasing scrap material, hereby affirms, warrants, and agrees to the following:</p>
+    <p style="margin: 0 0 4px 0;"><strong>1. Ownership:</strong> Seller is the legal owner or authorized representative of the owner of all materials sold and has the full legal right to sell and transfer title.</p>
+    <p style="margin: 0 0 4px 0;"><strong>2. No Liens:</strong> All materials are free and clear of any and all security interests, liens, or encumbrances.</p>
+    <p style="margin: 0 0 4px 0;"><strong>3. Indemnification:</strong> Seller agrees to indemnify, defend, and hold harmless the Buyer, its affiliates, employees, and agents from any and all claims, demands, causes of action, losses, damages, or expenses (including attorney fees) arising from: (a) any breach of the warranties above, (b) any claim that the material was stolen or unlawfully obtained, or (c) any violation of local, state, or federal laws by the Seller.</p>
+    <p style="margin: 0 0 4px 0;"><strong>4. No Hazardous Waste:</strong> Seller warrants that the material does not contain any hazardous substances as defined by law.</p>
+</div>`;
 
-    const { transaction, items, vehicle } = selectedTicketData;
-    
-    // Create printable content
-    const printContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px;">TICKET #${transaction.id}</h2>
+function buildTicketPrintHTML(transaction, items, vehicle, isOriginal) {
+    const watermarkStyle = isOriginal ? `
+        <style>
+            .watermark {
+                position: relative;
+            }
+            .watermark::before {
+                content: "ORIGINAL";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-30deg);
+                font-size: 80px;
+                font-weight: bold;
+                color: rgba(200, 200, 200, 0.25);
+                z-index: 0;
+                pointer-events: none;
+                white-space: nowrap;
+                letter-spacing: 10px;
+            }
+        </style>
+    ` : `
+        <style>
+            .watermark {
+                position: relative;
+            }
+            .watermark::before {
+                content: "REPRINT";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%) rotate(-30deg);
+                font-size: 80px;
+                font-weight: bold;
+                color: rgba(200, 200, 200, 0.25);
+                z-index: 0;
+                pointer-events: none;
+                white-space: nowrap;
+                letter-spacing: 10px;
+            }
+        </style>
+    `;
+
+    return `
+    ${watermarkStyle}
+    <div class="watermark" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; position: relative;">
+        <div style="text-align: center; margin-bottom: 10px;">
+            <h2 style="margin: 0;">CMC Recycling LLC d.b.a Sam&#96;s Recycling</h2>
+            <p style="margin: 5px 0; color: #666; font-size: 12px;">${isOriginal ? 'ORIGINAL' : 'REPRINT'} — Ticket #${transaction.id}</p>
+        </div>
+        <hr style="border: 1px solid #333;">
         
-        <div style="margin-top: 20px;">
+        <div style="margin-top: 15px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
                     <p><strong>Customer:</strong> ${transaction.name}</p>
@@ -1057,7 +1428,7 @@ function printTicketPDF() {
             </div>
         </div>
         
-        <table style="width: 100%; border-collapse: collapse; margin-top: 30px;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
             <thead>
                 <tr style="border-bottom: 2px solid #333;">
                     <th style="text-align: left; padding: 10px;">Material</th>
@@ -1076,13 +1447,13 @@ function printTicketPDF() {
             </tbody>
         </table>
         
-        <div style="margin-top: 20px; text-align: right; border-top: 2px solid #333; padding-top: 10px;">
+        <div style="margin-top: 15px; text-align: right; border-top: 2px solid #333; padding-top: 10px;">
             <h3 style="margin: 10px 0;">Total: $${transaction.total_amount.toFixed(2)}</h3>
             ${transaction.is_overridden ? '<p style="color: red; font-size: 12px;">⚠️ Price Override Applied</p>' : ''}
         </div>
 
         ${vehicle ? `
-        <div style="margin-top: 20px; padding: 15px; border: 2px solid #3498db; border-radius: 8px; background: #f0f8ff;">
+        <div style="margin-top: 15px; padding: 15px; border: 2px solid #3498db; border-radius: 8px; background: #f0f8ff;">
             <h3 style="margin: 0 0 10px 0; color: #2c3e50;">🚗 Vehicle Purchase Record</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <tr><td style="padding: 4px 8px; font-weight: bold; width: 120px;">VIN:</td><td style="padding: 4px 8px; font-family: monospace;">${vehicle.vin || 'N/A'}</td></tr>
@@ -1102,18 +1473,128 @@ function printTicketPDF() {
         </div>
         ` : ''}
 
-        <div style="margin-top: 40px; text-align: center; color: #666; font-size: 12px;">
+        ${OWNERSHIP_AGREEMENT_TEXT}
+
+        <div style="margin-top: 25px; position: relative;">
+            ${isOriginal ? '<div style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); color: rgba(180,180,180,0.5); font-size: 28px; font-weight: bold; letter-spacing: 8px; pointer-events: none;">ORIGINAL</div>' : ''}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 15px;">
+                <div>
+                    <div style="border-bottom: 1px solid #333; height: 40px;"></div>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Seller Signature</p>
+                </div>
+                <div>
+                    <div style="border-bottom: 1px solid #333; height: 40px;"></div>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Date</p>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 15px;">
+                <div>
+                    <div style="border-bottom: 1px solid #333; height: 40px;"></div>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Buyer Representative Signature</p>
+                </div>
+                <div>
+                    <div style="border-bottom: 1px solid #333; height: 40px;"></div>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Date</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: center; color: #666; font-size: 11px;">
             <p>Thank you for your business!</p>
-            <p>Printed: ${new Date().toLocaleString()}</p>
+            <p>Printed: ${new Date().toLocaleString()}${isOriginal ? '' : ' (REPRINT)'}</p>
         </div>
     </div>
     `;
+}
+
+function printTicketPDF() {
+    if (!selectedTicketData) {
+        return alert('No ticket selected');
+    }
+
+    const { transaction, items, vehicle } = selectedTicketData;
+    const printContent = buildTicketPrintHTML(transaction, items, vehicle, true);
 
     // Open print window
     const printWindow = window.open('', '', 'width=800,height=600');
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.print();
+}
+
+// Reprint ticket (marked as REPRINT, no ORIGINAL watermark)
+function reprintTicketPDF() {
+    if (!selectedTicketData) {
+        return alert('No ticket selected');
+    }
+
+    const { transaction, items, vehicle } = selectedTicketData;
+    const printContent = buildTicketPrintHTML(transaction, items, vehicle, false);
+
+    const printWindow = window.open('', '', 'width=800,height=600');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+}
+
+// Reprint voucher from ticket
+async function reprintVoucher(ticketId) {
+    try {
+        const vouchers = await window.electronAPI.invoke('get-vouchers', null);
+        // Find voucher by ticket_id — vouchers may not filter by customer, search all
+        // Fall back to generating a reprint with stored data
+        if (selectedTicketData) {
+            const { transaction } = selectedTicketData;
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + 30);
+
+            const voucherHTML = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #f9f9f9; border: 3px solid #ff6b00; position: relative;">
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 60px; font-weight: bold; color: rgba(200,200,200,0.2); pointer-events: none; letter-spacing: 8px;">REPRINT</div>
+                <div style="text-align: center; border-bottom: 3px double #ff6b00; padding-bottom: 20px;">
+                    <h1 style="margin: 0; color: #ff6b00;">PAYMENT VOUCHER (REPRINT)</h1>
+                    <p style="margin: 5px 0; color: #666;">⚠️ 5-DAY COPPER HOLD - TENNESSEE LAW</p>
+                </div>
+                
+                <div style="margin: 20px 0; padding: 15px; background: white; border: 1px solid #ddd;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="font-weight: bold; padding: 8px;">Ticket ID:</td>
+                            <td style="padding: 8px;">#${ticketId}</td>
+                        </tr>
+                        <tr style="background: #f9f9f9;">
+                            <td style="font-weight: bold; padding: 8px;">Vendor Name:</td>
+                            <td style="padding: 8px;">${transaction.name}</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: bold; padding: 8px;">Amount:</td>
+                            <td style="padding: 8px; font-size: 16px; color: #27ae60; font-weight: bold;">$${transaction.total_amount.toFixed(2)}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="margin: 20px 0; padding: 15px; background: #fff3cd; border-left: 5px solid #ff6b00;">
+                    <p style="margin: 0; font-size: 12px; color: #333;">
+                        <strong>IMPORTANT:</strong> This is a REPRINT. Original terms apply. 
+                        Copper items are held for 5 days per Tennessee scrap dealer regulations.
+                    </p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+                    <p>Reprinted: ${new Date().toLocaleString()}</p>
+                </div>
+            </div>
+            `;
+            
+            const printWindow = window.open('', '', 'width=800,height=600');
+            printWindow.document.write(voucherHTML);
+            printWindow.document.close();
+            printWindow.print();
+        }
+    } catch (err) {
+        console.error('Error reprinting voucher:', err);
+        alert('Error reprinting voucher');
+    }
 }
 
 function closeTicketModal() {
@@ -1139,8 +1620,24 @@ function renderHistory(txs) {
         });
         const typeIcon = t.transaction_type === 'buy' ? '📦' : '💰';
         const typeLabel = t.transaction_type === 'buy' ? 'BUY' : 'SELL';
-        return `<tr><td>${displayDate}</td><td>${t.customer_name}</td><td>${typeIcon} ${typeLabel}</td><td>$${t.total_amount.toFixed(2)}</td><td><button class="btn-action" onclick="viewTicketWithDetails(${t.id})">👁️ View</button><button class="btn-action" onclick="runCustomerReport(${t.customer_id})" style="margin-left:5px;">📊 Report</button></td></tr>`;
+        return `<tr><td>${displayDate}</td><td>${t.customer_name}</td><td>${typeIcon} ${typeLabel}</td><td>$${t.total_amount.toFixed(2)}</td><td><button class="btn-action" onclick="viewTicketWithDetails(${t.id})">👁️ View/Edit</button><button class="btn-action" onclick="reprintTicketFromHistory(${t.id})" style="margin-left:3px;" title="Reprint ticket">🖨️</button><button class="btn-action" onclick="runCustomerReport(${t.customer_id})" style="margin-left:3px;">📊</button></td></tr>`;
     }).join('');
+}
+
+// Reprint a ticket directly from history without opening the modal
+async function reprintTicketFromHistory(ticketId) {
+    try {
+        const ticketData = await window.electronAPI.invoke('get-ticket-details-with-customer', ticketId);
+        const { transaction, items, vehicle } = ticketData;
+        const printContent = buildTicketPrintHTML(transaction, items, vehicle, false);
+        const printWindow = window.open('', '', 'width=800,height=600');
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.print();
+    } catch (error) {
+        console.error('Error reprinting ticket:', error);
+        alert('Error reprinting ticket');
+    }
 }
 
 async function filterHistory(term) { 

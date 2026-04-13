@@ -12,11 +12,20 @@ const db = new sqlite3.Database(dbPath);
 // Secure folder for Driver's License images and location images
 const imagesPath = path.join(app.getPath('userData'), 'dl_images');
 const locationImagesPath = path.join(app.getPath('userData'), 'location_images');
+const vinImagesPath = path.join(app.getPath('userData'), 'vin_images');
 if (!fs.existsSync(imagesPath)) { 
     fs.mkdirSync(imagesPath, { recursive: true }); 
 }
 if (!fs.existsSync(locationImagesPath)) { 
     fs.mkdirSync(locationImagesPath, { recursive: true }); 
+}
+if (!fs.existsSync(vinImagesPath)) { 
+    fs.mkdirSync(vinImagesPath, { recursive: true }); 
+}
+
+function toTitleCase(str) {
+    const normalized = String(str || '').trim().replace(/\s+/g, ' ');
+    return normalized.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function initializeDatabase() {
@@ -59,6 +68,40 @@ function initializeDatabase() {
             created_at TEXT,
             FOREIGN KEY(ticket_id) REFERENCES transactions(id)
         )`);
+
+        // 8. Catalytic Converter Purchases (TN Code § 62-9, effective July 1, 2021)
+        db.run(`CREATE TABLE IF NOT EXISTS catalytic_converter_purchases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id INTEGER,
+            seller_authorization_type TEXT,
+            seller_license_number TEXT,
+            vehicle_registration_doc TEXT,
+            clean_air_act_exempt INTEGER DEFAULT 0,
+            clean_air_act_cert_info TEXT,
+            seller_documentation_notes TEXT,
+            notification_sent INTEGER DEFAULT 0,
+            created_at TEXT,
+            FOREIGN KEY(ticket_id) REFERENCES transactions(id)
+        )`);
+
+        // 9. Vehicle Purchase Compliance (TN Code § 55-3-203)
+        db.run(`CREATE TABLE IF NOT EXISTS vehicle_purchase_compliance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vehicle_purchase_id INTEGER,
+            seller_thumbprint_collected INTEGER DEFAULT 0,
+            seller_certification_signed INTEGER DEFAULT 0,
+            seller_certification_text TEXT,
+            nmvtis_reported INTEGER DEFAULT 0,
+            nmvtis_report_date TEXT,
+            transporting_vehicle_plate TEXT,
+            consideration_amount REAL,
+            three_day_hold_required INTEGER DEFAULT 0,
+            three_day_hold_start TEXT,
+            three_day_hold_expiry TEXT,
+            three_day_hold_released INTEGER DEFAULT 0,
+            created_at TEXT,
+            FOREIGN KEY(vehicle_purchase_id) REFERENCES vehicle_purchases(id)
+        )`);
         
         // Performance indexes
         db.run(`CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)`);
@@ -75,11 +118,28 @@ function initializeDatabase() {
         db.run(`CREATE INDEX IF NOT EXISTS idx_customer_balances ON customer_balances(customer_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_vehicle_purchases_ticket ON vehicle_purchases(ticket_id)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_vehicle_purchases_vin ON vehicle_purchases(vin)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_catconv_ticket ON catalytic_converter_purchases(ticket_id)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_catconv_seller_type ON catalytic_converter_purchases(seller_authorization_type)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_veh_compliance_vp ON vehicle_purchase_compliance(vehicle_purchase_id)`);
+
+        // Add vin_image column to vehicle_purchases (safe to re-run)
+        db.run(`ALTER TABLE vehicle_purchases ADD COLUMN vin_image TEXT`, (err) => {
+            if (err && !err.message.includes('duplicate column name')) {
+                console.error('Migration error adding vin_image:', err.message);
+            }
+        });
 
         // Ensure vehicle material exists on every DB (safe to re-run)
         db.get(`SELECT id FROM products WHERE material_name = 'Whole Vehicle'`, (err, row) => {
             if (!err && !row) {
                 db.run(`INSERT INTO products (material_name, price_per_lb) VALUES ('Whole Vehicle', 0.00)`);
+            }
+        });
+
+        // Ensure catalytic converter material exists on every DB (safe to re-run)
+        db.get(`SELECT id FROM products WHERE material_name = 'Catalytic Converter'`, (err, row) => {
+            if (!err && !row) {
+                db.run(`INSERT INTO products (material_name, price_per_lb) VALUES ('Catalytic Converter', 0.00)`);
             }
         });
         
@@ -140,7 +200,8 @@ function initializeDatabase() {
                     { name: 'Stainless Steel', price: 0.45 },
                     { name: 'Brass', price: 2.15 },
                     { name: 'Lead', price: 0.85 },
-                    { name: 'Zinc', price: 0.55 }
+                    { name: 'Zinc', price: 0.55 },
+                    { name: 'Catalytic Converter', price: 0.00 }
                 ];
                 
                 const stmt = db.prepare(`INSERT INTO products (material_name, price_per_lb) VALUES (?, ?)`);
@@ -196,13 +257,16 @@ ipcMain.handle('add-split-ticket', (e, d) => {
                     db.run('ROLLBACK', () => settle(reject, error));
                 };
 
+                const normalizedName = toTitleCase(d.customer_name);
+                const normalizedPlate = (d.vehicle_plate || '').trim().toUpperCase();
+
                 db.run(`INSERT INTO customers (name, id_number, vehicle_plate, created_at) 
                         VALUES (?, ?, ?, datetime('now')) 
                         ON CONFLICT(name) DO UPDATE SET id_number=excluded.id_number, vehicle_plate=excluded.vehicle_plate`, 
-                [d.customer_name, d.id_number, d.vehicle_plate], function(err) {
+                [normalizedName, d.id_number, normalizedPlate], function(err) {
                     if (err) return rollback(err);
                     
-                    db.get(`SELECT id FROM customers WHERE name = ?`, [d.customer_name], (err, cust) => {
+                    db.get(`SELECT id FROM customers WHERE name = ?`, [normalizedName], (err, cust) => {
                         if (err || !cust) return rollback(err || new Error("Customer lookup failed"));
                         
                         const cId = cust.id;
@@ -272,9 +336,11 @@ ipcMain.handle('get-all-customers', () => {
 
 ipcMain.handle('create-customer-profile', (e, data) => {
     return new Promise((resolve, reject) => {
+        const normalizedName = toTitleCase(data.name);
+        const normalizedPlate = (data.vehicle_plate || '').trim().toUpperCase();
         const query = `INSERT INTO customers (name, id_number, dl_expiration, vehicle_plate, truck_description, phone, address, email, is_vendor, dealer_exemption, dealer_number, created_at) 
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`;
-        db.run(query, [data.name, data.id_number, data.dl_expiration, data.vehicle_plate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null], function(err) {
+        db.run(query, [normalizedName, data.id_number, data.dl_expiration, normalizedPlate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null], function(err) {
             if (err) reject(err);
             else resolve({ success: true, newId: this.lastID });
         });
@@ -283,8 +349,10 @@ ipcMain.handle('create-customer-profile', (e, data) => {
 
 ipcMain.handle('save-customer-profile', (e, data) => {
     return new Promise((resolve, reject) => {
+        const normalizedName = toTitleCase(data.name);
+        const normalizedPlate = (data.vehicle_plate || '').trim().toUpperCase();
         const query = `UPDATE customers SET name=?, id_number=?, dl_expiration=?, vehicle_plate=?, truck_description=?, phone=?, address=?, email=?, is_vendor=?, dealer_exemption=?, dealer_number=? WHERE id=?`;
-        db.run(query, [data.name, data.id_number, data.dl_expiration, data.vehicle_plate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null, data.id], function(err) {
+        db.run(query, [normalizedName, data.id_number, data.dl_expiration, normalizedPlate, data.truck_description, data.phone, data.address, data.email, data.is_vendor || 0, data.dealer_exemption || 0, data.dealer_number || null, data.id], function(err) {
             if (err) reject(err);
             else resolve({ success: true, changes: this.changes });
         });
@@ -363,7 +431,12 @@ ipcMain.handle('get-ticket-details-with-customer', (e, ticketId) => {
                 // Also fetch vehicle purchase data if any
                 db.get(`SELECT * FROM vehicle_purchases WHERE ticket_id = ?`, [ticketId], (err, vehicle) => {
                     if (err) return reject(err);
-                    resolve({ transaction, items, vehicle: vehicle || null });
+
+                    // Also fetch catalytic converter compliance data if any
+                    db.get(`SELECT * FROM catalytic_converter_purchases WHERE ticket_id = ?`, [ticketId], (err, catconv) => {
+                        if (err) return reject(err);
+                        resolve({ transaction, items, vehicle: vehicle || null, catconv: catconv || null });
+                    });
                 });
             });
         });
@@ -761,11 +834,24 @@ ipcMain.handle('get-copper-holds', () => {
             `SELECT ch.*, t.id as transaction_id, t.date, c.name FROM copper_holds ch
              JOIN transactions t ON ch.ticket_id = t.id
              JOIN customers c ON t.customer_id = c.id
-             WHERE ch.is_released = 0 AND ch.hold_expiry > datetime('now')
-             ORDER BY ch.hold_expiry ASC`,
+             ORDER BY ch.is_released ASC, ch.hold_expiry ASC`,
             (err, rows) => {
                 if (err) reject(err);
                 else resolve(rows || []);
+            }
+        );
+    });
+});
+
+ipcMain.handle('release-copper-hold', (e, holdId) => {
+    return new Promise((resolve, reject) => {
+        const releaseDate = new Date().toISOString();
+        db.run(
+            `UPDATE copper_holds SET is_released = 1, release_date = ? WHERE id = ?`,
+            [releaseDate, holdId],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, changes: this.changes });
             }
         );
     });
@@ -852,6 +938,102 @@ ipcMain.handle('search-vehicles', (e, term) => {
     });
 });
 
+// ── Catalytic Converter Compliance (TN Code § 62-9, eff. July 1, 2021) ──
+
+ipcMain.handle('save-catconv-purchase', (e, data) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO catalytic_converter_purchases
+             (ticket_id, seller_authorization_type, seller_license_number,
+              vehicle_registration_doc, clean_air_act_exempt, clean_air_act_cert_info,
+              seller_documentation_notes, notification_sent, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            [data.ticketId, data.sellerAuthorizationType, data.sellerLicenseNumber || null,
+             data.vehicleRegistrationDoc || null, data.cleanAirActExempt ? 1 : 0,
+             data.cleanAirActCertInfo || null, data.sellerDocumentationNotes || null,
+             data.notificationSent ? 1 : 0],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, catconvId: this.lastID });
+            }
+        );
+    });
+});
+
+ipcMain.handle('get-catconv-purchase', (e, ticketId) => {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT * FROM catalytic_converter_purchases WHERE ticket_id = ?`,
+            [ticketId],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(row || null);
+            }
+        );
+    });
+});
+
+ipcMain.handle('get-all-catconv-purchases', () => {
+    return new Promise((resolve, reject) => {
+        db.all(
+            `SELECT cc.*, t.date, t.total_amount, t.transaction_type,
+                    c.name as customer_name, c.phone, c.id_number
+             FROM catalytic_converter_purchases cc
+             JOIN transactions t ON cc.ticket_id = t.id
+             JOIN customers c ON t.customer_id = c.id
+             ORDER BY cc.created_at DESC`,
+            (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            }
+        );
+    });
+});
+
+// ── Vehicle Purchase Compliance (TN Code § 55-3-203) ──
+
+ipcMain.handle('save-vehicle-compliance', (e, data) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO vehicle_purchase_compliance
+             (vehicle_purchase_id, seller_thumbprint_collected, seller_certification_signed,
+              seller_certification_text, nmvtis_reported, nmvtis_report_date,
+              transporting_vehicle_plate, consideration_amount,
+              three_day_hold_required, three_day_hold_start, three_day_hold_expiry,
+              three_day_hold_released, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))`,
+            [data.vehiclePurchaseId,
+             data.sellerThumbprintCollected ? 1 : 0,
+             data.sellerCertificationSigned ? 1 : 0,
+             data.sellerCertificationText || null,
+             data.nmvtisReported ? 1 : 0,
+             data.nmvtisReportDate || null,
+             data.transportingVehiclePlate || null,
+             data.considerationAmount || 0,
+             data.threeDayHoldRequired ? 1 : 0,
+             data.threeDayHoldStart || null,
+             data.threeDayHoldExpiry || null],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, complianceId: this.lastID });
+            }
+        );
+    });
+});
+
+ipcMain.handle('get-vehicle-compliance', (e, vehiclePurchaseId) => {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT * FROM vehicle_purchase_compliance WHERE vehicle_purchase_id = ?`,
+            [vehiclePurchaseId],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(row || null);
+            }
+        );
+    });
+});
+
 // Inventory Management
 ipcMain.handle('add-inventory', (e, { materialId, quantityLbs, location }) => {
     return new Promise((resolve, reject) => {
@@ -879,6 +1061,82 @@ ipcMain.handle('get-inventory', () => {
                 else resolve(rows || []);
             }
         );
+    });
+});
+
+// Delete Inventory
+ipcMain.handle('delete-inventory', (e, id) => {
+    return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM inventory WHERE id = ?`, [id], function(err) {
+            if (err) reject(err);
+            else resolve({ success: true, changes: this.changes });
+        });
+    });
+});
+
+// --- TICKET EDITING HANDLERS ---
+
+// Add a new item to an existing ticket
+ipcMain.handle('add-ticket-item', (e, { ticketId, materialName, netWeight, totalPrice }) => {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO ticket_items (ticket_id, material_name, net_weight, total_price) VALUES (?, ?, ?, ?)`,
+            [ticketId, materialName, netWeight, totalPrice],
+            function(err) {
+                if (err) reject(err);
+                else resolve({ success: true, itemId: this.lastID });
+            }
+        );
+    });
+});
+
+// Delete an item from a ticket
+ipcMain.handle('delete-ticket-item', (e, itemId) => {
+    return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM ticket_items WHERE id = ?`, [itemId], function(err) {
+            if (err) reject(err);
+            else resolve({ success: true, changes: this.changes });
+        });
+    });
+});
+
+// Recalculate ticket total from its items
+ipcMain.handle('recalc-ticket-total', (e, ticketId) => {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT COALESCE(SUM(total_price), 0) as total FROM ticket_items WHERE ticket_id = ?`,
+            [ticketId],
+            (err, row) => {
+                if (err) return reject(err);
+                const newTotal = row.total;
+                db.run(
+                    `UPDATE transactions SET total_amount = ?, base_total = ? WHERE id = ?`,
+                    [newTotal, newTotal, ticketId],
+                    function(err2) {
+                        if (err2) reject(err2);
+                        else resolve({ success: true, newTotal });
+                    }
+                );
+            }
+        );
+    });
+});
+
+// Save VIN area image
+ipcMain.handle('save-vin-image', async (e, { vehicleId, sourcePath }) => {
+    const ext = path.extname(sourcePath);
+    const fileName = `vin_${vehicleId}_${Date.now()}${ext}`;
+    const destPath = path.join(vinImagesPath, fileName);
+
+    return new Promise((resolve, reject) => {
+        fs.copyFile(sourcePath, destPath, (err) => {
+            if (err) return reject(err);
+
+            db.run(`UPDATE vehicle_purchases SET vin_image=? WHERE id=?`, [destPath, vehicleId], (err) => {
+                if (err) reject(err);
+                else resolve({ path: destPath });
+            });
+        });
     });
 });
 

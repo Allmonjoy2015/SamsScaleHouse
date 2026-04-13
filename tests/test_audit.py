@@ -99,3 +99,82 @@ class TestAuditLog:
         filepath.write_text('{"action": "TRANSACTION_CREATED", "entity_id": "t-1", "actor": "op", "details": {}, "event_id": "e-1", "timestamp": "2024-01-01T00:00:00"}\nnot json at all\n')
         log = AuditLog(filepath=filepath)
         assert len(log) == 1
+
+
+class TestAuditLogReviewWrite:
+    def test_events_by_action(self):
+        log = AuditLog()
+        log.record(AuditAction.TRANSACTION_CREATED, entity_id="t-1", actor="op")
+        log.record(AuditAction.LINE_ADDED, entity_id="t-1", actor="op")
+        log.record(AuditAction.TRANSACTION_COMPLETED, entity_id="t-1", actor="op")
+        log.record(AuditAction.LINE_ADDED, entity_id="t-2", actor="op")
+
+        created = log.events_by_action(AuditAction.TRANSACTION_CREATED)
+        lines = log.events_by_action(AuditAction.LINE_ADDED)
+        assert len(created) == 1
+        assert len(lines) == 2
+
+    def test_events_by_action_no_match(self):
+        log = AuditLog()
+        log.record(AuditAction.TRANSACTION_CREATED, entity_id="t-1", actor="op")
+        assert log.events_by_action(AuditAction.TRANSACTION_VOIDED) == []
+
+    def test_events_in_range(self):
+        log = AuditLog()
+        early = log.record(AuditAction.CUSTOMER_CREATED, entity_id="c-1", actor="op")
+        middle = log.record(AuditAction.MATERIAL_CREATED, entity_id="m-1", actor="op")
+        late = log.record(AuditAction.PRICE_UPDATED, entity_id="m-1", actor="op")
+
+        results = log.events_in_range(early.timestamp, middle.timestamp)
+        assert early in results
+        assert middle in results
+        assert late not in results
+
+    def test_events_in_range_all(self):
+        log = AuditLog()
+        e1 = log.record(AuditAction.TRANSACTION_CREATED, entity_id="t-1", actor="op")
+        e2 = log.record(AuditAction.TRANSACTION_COMPLETED, entity_id="t-1", actor="op")
+
+        results = log.events_in_range(e1.timestamp, e2.timestamp)
+        assert len(results) == 2
+
+    def test_write_report_creates_file(self, tmp_path: Path):
+        log = AuditLog()
+        log.record(
+            AuditAction.CUSTOMER_CREATED,
+            entity_id="c-1",
+            actor="alice",
+            details={"name": "Bob"},
+        )
+        log.record(AuditAction.PRICE_UPDATED, entity_id="m-1", actor="bob")
+
+        report_path = tmp_path / "report.txt"
+        log.write_report(report_path)
+
+        assert report_path.exists()
+        content = report_path.read_text(encoding="utf-8")
+        assert "2 event(s)" in content
+        assert "CUSTOMER_CREATED" in content
+        assert "PRICE_UPDATED" in content
+        assert "alice" in content
+        assert "name: Bob" in content
+
+    def test_write_report_overwrites_existing(self, tmp_path: Path):
+        log = AuditLog()
+        log.record(AuditAction.LINE_ADDED, entity_id="t-1", actor="op")
+
+        report_path = tmp_path / "report.txt"
+        report_path.write_text("old content")
+
+        log.write_report(report_path)
+        content = report_path.read_text(encoding="utf-8")
+        assert "old content" not in content
+        assert "LINE_ADDED" in content
+
+    def test_write_report_empty_log(self, tmp_path: Path):
+        log = AuditLog()
+        report_path = tmp_path / "empty_report.txt"
+        log.write_report(report_path)
+
+        content = report_path.read_text(encoding="utf-8")
+        assert "0 event(s)" in content
